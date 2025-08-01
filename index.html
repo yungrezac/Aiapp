@@ -639,8 +639,11 @@
 
                         await App.ui.typeCode(finalCode, App.elements.codeOutput);
 
+                        const aiResponseText = 'Готово! Код обновлен.';
+                        App.ui.addMessageToChat(aiResponseText, 'ai');
+                        chat.messages.push({ sender: 'ai', text: aiResponseText });
+                        
                         chat.generatedCode = finalCode;
-                        chat.messages.push({ sender: 'ai', text: 'Готово! Код обновлен.' });
                         if (!App.state.subscription.isActive) {
                             App.state.dailyGenerations.count++;
                         }
@@ -651,10 +654,11 @@
                     } catch (error) {
                         console.error('Generation Error:', error);
                         indicator.remove();
-                        chat.messages.push({ sender: 'ai', text: `Произошла ошибка: ${error.message}.` });
+                        const errorMessage = `Произошла ошибка: ${error.message}.`;
+                        App.ui.addMessageToChat(errorMessage, 'ai');
+                        chat.messages.push({ sender: 'ai', text: errorMessage });
                         App.tg.HapticFeedback.notificationOccurred('error');
                         App.stateManager.save();
-                        App.ui.renderAll();
                     } finally {
                         App.ui.toggleGenerationButton(false);
                     }
