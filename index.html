@@ -270,12 +270,10 @@
             },
             
             dataManager: {
-                // ИСПРАВЛЕНО: Объединяем загрузку профиля и чатов в одну функцию
                 async loadInitialDataAndChats() {
                     const user = App.tg.initDataUnsafe.user;
                     const userId = user.id;
 
-                    // 1. Загружаем профиль пользователя
                     let { data: profile, error: profileError } = await App.supabase
                         .from('profiles')
                         .select('*')
@@ -290,7 +288,6 @@
                         profile = await this.createNewUserProfile(user);
                     }
 
-                    // 2. Проверяем, нужно ли сбросить дневные генерации
                     const todayStart = new Date().setHours(0, 0, 0, 0);
                     if (!profile.daily_generations_last_reset || new Date(profile.daily_generations_last_reset).getTime() < todayStart) {
                         const { data: updatedProfile, error: updateError } = await App.supabase
@@ -308,7 +305,6 @@
 
                     App.state.userProfile = profile;
 
-                    // 3. Загружаем список чатов пользователя
                     const { data: chats, error: chatsError } = await App.supabase
                         .from('chats')
                         .select('id, title, created_at')
@@ -318,13 +314,11 @@
                     if (chatsError) throw new Error(`Failed to load chats: ${chatsError.message}`);
                     App.state.chats = chats || [];
 
-                    // 4. Если чатов нет, создаем первый
                     if (App.state.chats.length === 0) {
                         const newChat = await this.createNewChatInDB(userId);
                         App.state.chats.unshift(newChat);
                     }
 
-                    // 5. Загружаем полный активный чат
                     const activeChatId = App.state.chats[0].id;
                     await this.loadActiveChat(activeChatId);
                 },
@@ -684,18 +678,48 @@
                     const referrerId = App.tg.initDataUnsafe.start_param;
                     const currentUser = App.state.userProfile;
 
+                    // Проверяем, что пользователь пришел по ссылке, у него еще нет реферера, и он не сам себе реферер
                     if (referrerId && !currentUser.referrer_id && currentUser.id.toString() !== referrerId) {
                         console.log(`New user ${currentUser.id} referred by ${referrerId}`);
                         try {
-                            await App.api.invokeFunction('handle-actions', {
-                                action: 'award_referral',
-                                referrerId: referrerId,
-                                newUserId: currentUser.id
-                            });
+                            // 1. Награждаем реферера
+                            const { data: referrerProfile, error: referrerError } = await App.supabase
+                              .from('profiles')
+                              .select('bonus_generations')
+                              .eq('id', referrerId)
+                              .single();
+
+                            if (referrerError) throw new Error(`Could not find referrer: ${referrerError.message}`);
+
+                            const { error: updateReferrerError } = await App.supabase
+                              .from('profiles')
+                              .update({ bonus_generations: (referrerProfile.bonus_generations || 0) + 1 })
+                              .eq('id', referrerId);
+
+                            if (updateReferrerError) throw new Error(`Could not update referrer bonus: ${updateReferrerError.message}`);
+
+                            // 2. Обновляем профиль нового пользователя, указывая, кто его пригласил
+                            const { error: updateNewUserError } = await App.supabase
+                              .from('profiles')
+                              .update({ referrer_id: referrerId })
+                              .eq('id', currentUser.id);
+
+                            if (updateNewUserError) throw new Error(`Could not update new user's referrer: ${updateNewUserError.message}`);
+
+                            // 3. Записываем факт реферальной связи в отдельную таблицу
+                            const { error: insertReferralError } = await App.supabase
+                              .from('referrals')
+                              .insert({ referrer_id: referrerId, referred_id: currentUser.id });
+
+                            if (insertReferralError) throw new Error(`Could not log referral connection: ${insertReferralError.message}`);
+                            
+                            // Обновляем локальное состояние и показываем сообщение
                             App.state.userProfile.referrer_id = referrerId;
                             App.ui.showPopup({ title: 'Бонус!', message: 'Вы перешли по приглашению и получили 1 бонусную генерацию! Ваш друг также получил бонус.' });
+
                         } catch (error) {
-                            console.error("Failed to process referral:", error);
+                            console.error("Failed to process referral on client-side:", error);
+                            App.ui.showPopup({ title: 'Ошибка', message: 'Не удалось обработать приглашение.' });
                         }
                     }
                 },
