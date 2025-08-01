@@ -225,10 +225,9 @@
                         throw new Error("Не удалось получить данные пользователя Telegram.");
                     }
 
-                    this.elements.loaderMessage.textContent = 'Загрузка профиля...';
-                    await this.dataManager.loadInitialData();
+                    this.elements.loaderMessage.textContent = 'Загрузка данных...';
+                    await this.dataManager.loadInitialDataAndChats();
                     
-                    // Обработка реферала после загрузки профиля
                     await this.referralManager.processNewReferral();
 
                     this.ui.renderAll();
@@ -271,10 +270,12 @@
             },
             
             dataManager: {
-                async loadInitialData() {
+                // ИСПРАВЛЕНО: Объединяем загрузку профиля и чатов в одну функцию
+                async loadInitialDataAndChats() {
                     const user = App.tg.initDataUnsafe.user;
                     const userId = user.id;
 
+                    // 1. Загружаем профиль пользователя
                     let { data: profile, error: profileError } = await App.supabase
                         .from('profiles')
                         .select('*')
@@ -285,12 +286,11 @@
                         throw new Error(`Failed to load profile: ${profileError.message}`);
                     }
                     
-                    let isNewUser = false;
                     if (!profile) {
-                        isNewUser = true;
                         profile = await this.createNewUserProfile(user);
                     }
 
+                    // 2. Проверяем, нужно ли сбросить дневные генерации
                     const todayStart = new Date().setHours(0, 0, 0, 0);
                     if (!profile.daily_generations_last_reset || new Date(profile.daily_generations_last_reset).getTime() < todayStart) {
                         const { data: updatedProfile, error: updateError } = await App.supabase
@@ -307,12 +307,8 @@
                     }
 
                     App.state.userProfile = profile;
-                    
-                    // Возвращаем флаг, является ли пользователь новым
-                    return isNewUser;
-                },
 
-                async loadChatsForUser(userId) {
+                    // 3. Загружаем список чатов пользователя
                     const { data: chats, error: chatsError } = await App.supabase
                         .from('chats')
                         .select('id, title, created_at')
@@ -322,11 +318,13 @@
                     if (chatsError) throw new Error(`Failed to load chats: ${chatsError.message}`);
                     App.state.chats = chats || [];
 
+                    // 4. Если чатов нет, создаем первый
                     if (App.state.chats.length === 0) {
                         const newChat = await this.createNewChatInDB(userId);
                         App.state.chats.unshift(newChat);
                     }
 
+                    // 5. Загружаем полный активный чат
                     const activeChatId = App.state.chats[0].id;
                     await this.loadActiveChat(activeChatId);
                 },
@@ -339,7 +337,6 @@
                             username: user.username,
                             full_name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
                             updated_at: new Date().toISOString(),
-                            // Сразу даем бонусную генерацию, если пользователь пришел по реф. ссылке
                             bonus_generations: App.tg.initDataUnsafe.start_param ? 1 : 0
                         })
                         .select()
@@ -411,7 +408,6 @@
                 }
             },
             
-            // ... UI, EventManager и другие модули ...
             ui: {
                 renderAll() {
                     this.renderActiveChat();
@@ -688,7 +684,6 @@
                     const referrerId = App.tg.initDataUnsafe.start_param;
                     const currentUser = App.state.userProfile;
 
-                    // Проверяем, что пользователь пришел по ссылке, у него еще нет реферера, и он не сам себе реферер
                     if (referrerId && !currentUser.referrer_id && currentUser.id.toString() !== referrerId) {
                         console.log(`New user ${currentUser.id} referred by ${referrerId}`);
                         try {
@@ -697,11 +692,8 @@
                                 referrerId: referrerId,
                                 newUserId: currentUser.id
                             });
-                            // Обновляем локальный профиль, чтобы показать бонус
-                            App.state.userProfile.bonus_generations = (App.state.userProfile.bonus_generations || 0) + 1;
                             App.state.userProfile.referrer_id = referrerId;
-                            App.ui.renderProfilePage();
-                            App.ui.showPopup({ title: 'Бонус!', message: 'Вы перешли по приглашению и получили 1 бонусную генерацию!' });
+                            App.ui.showPopup({ title: 'Бонус!', message: 'Вы перешли по приглашению и получили 1 бонусную генерацию! Ваш друг также получил бонус.' });
                         } catch (error) {
                             console.error("Failed to process referral:", error);
                         }
@@ -732,7 +724,6 @@
 
             paymentManager: {
                 initiateSubscription() {
-                    // ИЗМЕНЕНО: Показываем заглушку вместо вызова функции
                     App.ui.showPopup({
                         title: 'Недоступно',
                         message: 'Скоро будет доступно в вашем регионе'
