@@ -73,6 +73,12 @@
 </head>
 <body class="flex flex-col h-screen">
 
+    <!-- Глобальный загрузчик -->
+    <div id="global-loader" class="absolute inset-0 bg-[var(--tg-bg)] bg-opacity-80 flex flex-col items-center justify-center z-[100]">
+        <div class="loader" style="width: 48px; height: 48px;"></div>
+        <p id="loader-message" class="mt-4 text-lg font-semibold text-[var(--tg-text)]">Подключаемся...</p>
+    </div>
+
     <!-- Основной контейнер для страниц -->
     <main class="flex-grow overflow-hidden flex flex-col">
         <!-- СТРАНИЦА 1: ЧАТ С ИИ -->
@@ -195,33 +201,49 @@
                 supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1od3pncGV4YWpmcXF0bGdpdmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQwMzU1ODAsImV4cCI6MjA2OTYxMTU4MH0.jmmkJ2gsfRMVOo3KVTHYS2u8IIoBUH7D5ZemZowwpzE',
                 maxFreeGenerations: 5,
             },
+            // Состояние приложения хранит ЗАГРУЖЕННЫЕ данные, а не является их источником
             state: {
-                activeChatId: null,
-                chats: [],
-                dailyGenerations: { count: 0, lastReset: 0 },
-                bonusGenerations: 0, 
-                subscription: { isActive: false, endDate: null },
+                userProfile: null, // Данные из таблицы profiles
+                chats: [],         // Список чатов (заголовки)
+                activeChat: null,  // Полные данные активного чата (с сообщениями и кодом)
+                myReferrals: [],   // Список приглашенных пользователей
                 isGenerating: false,
-                referrerId: null, 
-                myReferrals: [], 
             },
             elements: {},
             tg: window.Telegram.WebApp,
             supabase: null,
 
             async init() {
-                this.tg.ready();
-                this.tg.expand();
-                
-                this.supabase = supabase.createClient(this.config.supabaseUrl, this.config.supabaseAnonKey);
-                
-                this.cacheDOMElements();
-                await this.stateManager.load();
-                await this.referralManager.initialize(); 
-                this.specialAccessManager.grantPremiumIfNeeded();
-                this.ui.renderAll();
-                this.eventManager.addEventListeners();
-                console.log("App Initialized. User:", this.tg.initDataUnsafe.user);
+                try {
+                    this.tg.ready();
+                    this.tg.expand();
+                    this.cacheDOMElements();
+                    this.eventManager.addEventListeners();
+
+                    // 1. Аутентификация в Supabase
+                    this.elements.loaderMessage.textContent = 'Аутентификация...';
+                    await this.authManager.authenticate();
+                    console.log("Supabase Authenticated.");
+
+                    // 2. Загрузка данных пользователя
+                    this.elements.loaderMessage.textContent = 'Загрузка профиля...';
+                    await this.dataManager.loadInitialData();
+                    console.log("User data loaded:", this.state.userProfile);
+
+                    // 3. Проверка особых доступов и рефералов
+                    await this.specialAccessManager.grantPremiumIfNeeded();
+                    await this.referralManager.processReferralOnLoad();
+
+                    // 4. Отрисовка интерфейса
+                    this.ui.renderAll();
+                    this.elements.globalLoader.style.display = 'none'; // Скрываем загрузчик
+                    console.log("App Initialized. User:", this.tg.initDataUnsafe.user);
+
+                } catch (error) {
+                    console.error("Initialization failed:", error);
+                    this.elements.loaderMessage.textContent = `Ошибка: ${error.message}`;
+                    this.tg.HapticFeedback.notificationOccurred('error');
+                }
             },
 
             cacheDOMElements() {
@@ -237,7 +259,8 @@
                     'url-input-view', 'direct-input-view', 'direct-code-input', 'render-direct-code-button',
                     'user-profile-card', 'user-avatar', 'user-fullname', 'user-username',
                     'copy-referral-link-button', 'referral-link-input',
-                    'referral-list-section', 'referral-list', 'referral-count'
+                    'referral-list-section', 'referral-list', 'referral-count',
+                    'global-loader', 'loader-message'
                 ];
                 ids.forEach(id => {
                     const camelCaseId = id.replace(/-(\w)/g, (_, c) => c.toUpperCase());
@@ -249,72 +272,156 @@
                 this.elements.subNavButtonsInspector = document.querySelectorAll('#inspector-page .sub-nav-button');
                 this.elements.inspectorInputTabs = document.querySelectorAll('#inspector-page .inspector-input-tab');
             },
+            
+            authManager: {
+                async authenticate() {
+                    App.supabase = supabase.createClient(App.config.supabaseUrl, App.config.supabaseAnonKey);
+                    
+                    // Вызываем серверную функцию для валидации initData и получения JWT
+                    const { data, error } = await App.supabase.functions.invoke('telegram-auth', {
+                        body: { initData: App.tg.initData }
+                    });
 
-            stateManager: {
-                async load() {
-                    const user = App.tg.initDataUnsafe.user;
-                    if (!user) {
-                        console.error("User data is not available.");
-                        this.setDefaultState();
-                        return;
-                    }
+                    if (error) throw new Error(`Auth function error: ${error.message}`);
+                    if (!data || !data.session) throw new Error('Authentication failed: No session returned.');
 
-                    const { data, error } = await App.supabase
+                    // Устанавливаем сессию в Supabase клиенте
+                    const { error: sessionError } = await App.supabase.auth.setSession(data.session);
+                    if (sessionError) throw new Error(`Failed to set session: ${sessionError.message}`);
+                }
+            },
+
+            dataManager: {
+                async loadInitialData() {
+                    // 1. Загружаем профиль пользователя
+                    let { data: profile, error: profileError } = await App.supabase
                         .from('profiles')
-                        .select('state')
-                        .eq('id', user.id)
+                        .select('*')
                         .single();
 
-                    if (data && data.state) {
-                        Object.assign(App.state, data.state);
-                    } else {
-                        this.setDefaultState();
-                        await this.save(); // Сохраняем дефолтное состояние для нового пользователя
+                    if (profileError && profileError.code !== 'PGRST116') { // PGRST116 = 'single row not found'
+                        throw new Error(`Failed to load profile: ${profileError.message}`);
                     }
-                    this.checkDateBasedState();
-                },
-                async save() {
-                    const user = App.tg.initDataUnsafe.user;
-                    if (!user) return;
+                    
+                    // 2. Если профиля нет, создаем новый
+                    if (!profile) {
+                        profile = await this.createNewUserProfile();
+                    }
 
-                    const updates = {
-                        id: user.id,
-                        state: App.state,
-                        updated_at: new Date().toISOString(),
-                        username: user.username,
-                        full_name: `${user.first_name || ''} ${user.last_name || ''}`.trim()
-                    };
-
-                    const { error } = await App.supabase.from('profiles').upsert(updates);
-                    if (error) console.error('Error saving state:', error);
-                },
-                setDefaultState() {
-                    const initialChatId = `chat-${Date.now()}`;
-                    App.state.activeChatId = initialChatId;
-                    App.state.chats = [{ 
-                        id: initialChatId, 
-                        title: 'Новый чат', 
-                        createdAt: new Date().toISOString(), 
-                        messages: [{ sender: 'ai', text: 'Привет! 👋 Опиши, какое веб-приложение ты хочешь создать.' }], 
-                        generatedCode: '' 
-                    }];
-                    App.state.bonusGenerations = 0;
-                    App.state.referrerId = null;
-                    App.state.myReferrals = [];
-                    App.state.dailyGenerations = { count: 0, lastReset: 0 };
-                    App.state.subscription = { isActive: false, endDate: null };
-                },
-                checkDateBasedState() {
+                    // 3. Проверяем, нужно ли сбросить дневные генерации
                     const todayStart = new Date().setHours(0, 0, 0, 0);
-                    if (App.state.dailyGenerations.lastReset < todayStart) {
-                        App.state.dailyGenerations = { count: 0, lastReset: todayStart };
+                    if (new Date(profile.daily_generations_last_reset).getTime() < todayStart) {
+                        const { data: updatedProfile, error: updateError } = await App.supabase
+                            .from('profiles')
+                            .update({ 
+                                daily_generations_count: 0, 
+                                daily_generations_last_reset: new Date().toISOString() 
+                            })
+                            .eq('id', App.tg.initDataUnsafe.user.id)
+                            .select()
+                            .single();
+                        if (updateError) console.error("Failed to reset daily generations:", updateError);
+                        else profile = updatedProfile;
                     }
-                    if (App.state.subscription.isActive && new Date(App.state.subscription.endDate) < new Date()) {
-                        App.state.subscription = { isActive: false, endDate: null };
+
+                    App.state.userProfile = profile;
+
+                    // 4. Загружаем список чатов (только заголовки)
+                    const { data: chats, error: chatsError } = await App.supabase
+                        .from('chats')
+                        .select('id, title, created_at')
+                        .order('created_at', { ascending: false });
+
+                    if (chatsError) throw new Error(`Failed to load chats: ${chatsError.message}`);
+                    App.state.chats = chats || [];
+
+                    // 5. Если чатов нет, создаем первый
+                    if (App.state.chats.length === 0) {
+                        const newChat = await this.createNewChatInDB();
+                        App.state.chats.unshift(newChat); // Добавляем в начало списка
                     }
+
+                    // 6. Загружаем полный активный чат
+                    const activeChatId = App.state.chats[0].id; // Последний созданный чат будет активным
+                    await this.loadActiveChat(activeChatId);
                 },
-                getActiveChat() {
-                    return App.state.chats.find(chat => chat.id === App.state.activeChatId);
+
+                async createNewUserProfile() {
+                    const user = App.tg.initDataUnsafe.user;
+                    const { data, error } = await App.supabase
+                        .from('profiles')
+                        .insert({
+                            id: user.id,
+                            username: user.username,
+                            full_name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+                            updated_at: new Date().toISOString()
+                        })
+                        .select()
+                        .single();
+
+                    if (error) throw new Error(`Failed to create profile: ${error.message}`);
+                    return data;
+                },
+
+                async loadActiveChat(chatId) {
+                    const { data, error } = await App.supabase
+                        .from('chats')
+                        .select('*')
+                        .eq('id', chatId)
+                        .single();
+
+                    if (error) {
+                        console.error(`Failed to load chat ${chatId}:`, error);
+                        App.ui.showPopup({ title: 'Ошибка', message: 'Не удалось загрузить чат.' });
+                        return;
+                    }
+                    App.state.activeChat = data;
+                },
+
+                async createNewChatInDB() {
+                    const { data, error } = await App.supabase
+                        .from('chats')
+                        .insert({
+                            user_id: App.tg.initDataUnsafe.user.id,
+                            title: 'Новый чат',
+                            messages: [{ sender: 'ai', text: 'Привет! 👋 Опиши, какое веб-приложение ты хочешь создать.' }],
+                            generated_code: ''
+                        })
+                        .select('id, title, created_at') // Возвращаем только нужные для списка поля
+                        .single();
+                    
+                    if (error) {
+                         console.error('Failed to create new chat:', error);
+                         throw error;
+                    }
+                    return data;
+                },
+                
+                async saveActiveChat() {
+                    if (!App.state.activeChat) return;
+                    const { id, title, messages, generated_code } = App.state.activeChat;
+                    const { error } = await App.supabase
+                        .from('chats')
+                        .update({ title, messages, generated_code })
+                        .eq('id', id);
+                    
+                    if (error) console.error('Failed to save chat:', error);
+                },
+
+                async updateUserProfile(updates) {
+                    const { data, error } = await App.supabase
+                        .from('profiles')
+                        .update(updates)
+                        .eq('id', App.state.userProfile.id)
+                        .select()
+                        .single();
+
+                    if (error) {
+                        console.error('Failed to update profile:', error);
+                        return;
+                    }
+                    App.state.userProfile = data; // Обновляем локальное состояние
+                    App.ui.renderProfilePage(); // Перерисовываем профиль
                 }
             },
 
@@ -325,8 +432,12 @@
                     this.renderChatList();
                 },
                 renderActiveChat() {
-                    const chat = App.stateManager.getActiveChat();
-                    if (!chat) return;
+                    const chat = App.state.activeChat;
+                    if (!chat) {
+                        App.elements.chatTitle.textContent = 'Загрузка...';
+                        App.elements.chatHistory.innerHTML = '';
+                        return;
+                    };
                     
                     App.elements.chatTitle.textContent = chat.title;
                     App.elements.chatHistory.innerHTML = '';
@@ -352,27 +463,42 @@
                     App.elements.userUsername.textContent = user.username ? `@${user.username}` : 'No username';
                 },
                 renderSubscriptionStatus() {
-                    const { subscription, dailyGenerations, bonusGenerations } = App.state;
+                    const profile = App.state.userProfile;
+                    if (!profile) return;
+
+                    const { subscription_is_active, subscription_end_date, daily_generations_count, bonus_generations } = profile;
                     const { maxFreeGenerations } = App.config;
                     const el = App.elements.subscriptionStatus;
 
-                    if (subscription.isActive) {
-                        el.innerHTML = `<p class="text-sm text-green-500 font-semibold">PRO Подписка активна</p><p class="text-lg font-bold">Неограниченно генераций</p><p class="text-xs opacity-70 mt-1">Истекает: ${new Date(subscription.endDate).toLocaleDateString()}</p>`;
+                    if (subscription_is_active && new Date(subscription_end_date) > new Date()) {
+                        el.innerHTML = `<p class="text-sm text-green-500 font-semibold">PRO Подписка активна</p><p class="text-lg font-bold">Неограниченно генераций</p><p class="text-xs opacity-70 mt-1">Истекает: ${new Date(subscription_end_date).toLocaleDateString()}</p>`;
                     } else {
-                        const remaining = maxFreeGenerations - dailyGenerations.count;
+                        const remaining = maxFreeGenerations - daily_generations_count;
                         el.innerHTML = `
                             <p class="text-sm">Бесплатных генераций сегодня:</p>
-                            <p class="text-2xl font-bold">${remaining} / ${maxFreeGenerations}</p>
-                            ${bonusGenerations > 0 ? `<p class="text-sm text-blue-500 mt-1">Бонусных генераций: ${bonusGenerations}</p>` : ''}
+                            <p class="text-2xl font-bold">${remaining < 0 ? 0 : remaining} / ${maxFreeGenerations}</p>
+                            ${bonus_generations > 0 ? `<p class="text-sm text-blue-500 mt-1">Бонусных генераций: ${bonus_generations}</p>` : ''}
                             <button id="subscribe-button" class="w-full mt-4 bg-yellow-400 text-black font-bold py-2 px-4 rounded-lg btn-transition">Подписаться за 999 Stars</button>`;
-                        document.getElementById('subscribe-button').addEventListener('click', () => App.paymentManager.initiateSubscription());
+                        document.getElementById('subscribe-button')?.addEventListener('click', () => App.paymentManager.initiateSubscription());
                     }
                 },
                 renderReferralSection() {
                     const link = App.referralManager.generateReferralLink();
                     App.elements.referralLinkInput.value = link;
                 },
-                renderReferralList() {
+                async renderReferralList() {
+                    // Загрузка рефералов при отрисовке
+                    const { data, error } = await App.supabase
+                        .from('referrals')
+                        .select('referred_id, profiles(full_name, username, photo_url)')
+                        .eq('referrer_id', App.state.userProfile.id);
+                    
+                    if (error) {
+                        console.error("Failed to load referrals:", error);
+                        return;
+                    }
+                    App.state.myReferrals = data.map(r => r.profiles);
+
                     const listEl = App.elements.referralList;
                     const countEl = App.elements.referralCount;
                     listEl.innerHTML = ''; 
@@ -386,10 +512,11 @@
                     }
 
                     referrals.forEach(ref => {
+                        if (!ref) return; // Пропускаем, если профиль реферала не загрузился
                         const item = document.createElement('div');
                         item.className = 'flex items-center space-x-3 p-2 rounded-lg';
-                        const avatar = ref.photo_url || `https://placehold.co/40x40/EFEFEF/333333?text=${(ref.first_name || 'U').charAt(0)}`;
-                        const name = `${ref.first_name || ''} ${ref.last_name || ''}`.trim();
+                        const avatar = ref.photo_url || `https://placehold.co/40x40/EFEFEF/333333?text=${(ref.full_name || 'U').charAt(0)}`;
+                        const name = ref.full_name || 'User';
                         const username = ref.username ? `@${ref.username}` : '';
                         
                         item.innerHTML = `
@@ -403,18 +530,22 @@
                     });
                 },
                 renderChatList() {
-                    const { chats, activeChatId } = App.state;
+                    const { chats } = App.state;
+                    const activeChatId = App.state.activeChat?.id;
                     const el = App.elements.chatList;
                     el.innerHTML = '';
                     
-                    chats.slice().reverse().forEach(chat => {
+                    chats.forEach(chat => {
                         const chatItem = document.createElement('div');
                         const isActive = chat.id === activeChatId;
                         chatItem.className = `p-3 rounded-lg cursor-pointer ${isActive ? 'bg-[var(--tg-button)] text-[var(--tg-button-text)]' : 'bg-[var(--tg-secondary-bg)]'}`;
-                        chatItem.innerHTML = `<h4 class="font-semibold truncate">${chat.title}</h4><p class="text-xs opacity-70">${new Date(chat.createdAt).toLocaleString()}</p>`;
+                        chatItem.innerHTML = `<h4 class="font-semibold truncate">${chat.title}</h4><p class="text-xs opacity-70">${new Date(chat.created_at).toLocaleString()}</p>`;
                         chatItem.addEventListener('click', async () => {
-                            App.state.activeChatId = chat.id;
-                            await App.stateManager.save();
+                            if (chat.id === App.state.activeChat?.id) {
+                                this.closeHistoryModal();
+                                return;
+                            }
+                            await App.dataManager.loadActiveChat(chat.id);
                             this.renderAll();
                             this.closeHistoryModal();
                         });
@@ -440,7 +571,11 @@
                 navigateToPage(pageId) {
                     App.elements.pages.forEach(p => p.classList.toggle('active', p.id === pageId));
                     App.elements.navButtons.forEach(b => b.classList.toggle('active', b.dataset.page === pageId));
+                    if (pageId === 'profile-page') {
+                        this.renderProfilePage(); // Обновляем данные при переходе на страницу профиля
+                    }
                 },
+                // ... Остальные UI-методы (toggleCodePreview, toggleInspectorInputView и т.д.) остаются без изменений ...
                 toggleCodePreview(view) {
                     App.elements.subNavButtons.forEach(b => b.classList.toggle('active', b.dataset.view === view));
                     App.elements.codeView.classList.toggle('hidden', view !== 'code');
@@ -515,7 +650,7 @@
                     App.elements.historyModalOverlay.addEventListener('click', () => App.ui.closeHistoryModal());
                     App.elements.pageNewChatButton.addEventListener('click', () => App.chatManager.createNewChat());
                     App.elements.refreshPreviewButton.addEventListener('click', () => {
-                        const chat = App.stateManager.getActiveChat();
+                        const chat = App.state.activeChat;
                         if (chat) App.elements.previewIframe.srcdoc = chat.generatedCode;
                         App.tg.HapticFeedback.notificationOccurred('success');
                     });
@@ -532,21 +667,14 @@
 
             chatManager: {
                 async createNewChat() {
-                    const newId = `chat-${Date.now()}`;
-                    App.state.chats.push({ 
-                        id: newId, 
-                        title: 'Новый чат', 
-                        createdAt: new Date().toISOString(), 
-                        messages: [{ sender: 'ai', text: 'Новый чат создан. Что будем делать?' }], 
-                        generatedCode: '' 
-                    });
-                    App.state.activeChatId = newId;
-                    await App.stateManager.save();
+                    const newChatInfo = await App.dataManager.createNewChatInDB();
+                    App.state.chats.unshift(newChatInfo); // Добавляем в начало списка
+                    await App.dataManager.loadActiveChat(newChatInfo.id);
                     App.ui.renderAll();
                     App.ui.closeHistoryModal();
                 },
                 copyCode() {
-                    const code = App.stateManager.getActiveChat().generatedCode;
+                    const code = App.state.activeChat?.generatedCode;
                     if (!code) return;
                     const textarea = document.createElement('textarea');
                     textarea.value = code;
@@ -566,9 +694,13 @@
                 }
             },
             
+            // ... specialAccessManager, referralManager, paymentManager, inspectorManager, generationManager, api ...
+            // Эти модули в основном остаются прежними, но теперь они будут вызывать dataManager для обновления данных
+            // вместо прямого изменения state и вызова save().
+
             specialAccessManager: {
-                async grantPremiumIfNeeded() {
-                    if (App.tg.initDataUnsafe?.user && !App.state.subscription.isActive) {
+                 async grantPremiumIfNeeded() {
+                    if (App.tg.initDataUnsafe?.user && !App.state.userProfile.subscription_is_active) {
                         const username = App.tg.initDataUnsafe.user.username;
                         if (username && username.toLowerCase() === 'yung_rezac') {
                             console.log('Granting special premium access to @yung_rezac');
@@ -584,37 +716,45 @@
             },
 
             referralManager: {
-                async initialize() {
+                async processReferralOnLoad() {
                     const referrerId = App.tg.initDataUnsafe?.start_param;
-                    if (referrerId && App.tg.initDataUnsafe.user.id.toString() !== referrerId && !App.state.referrerId) {
-                        await this.handleNewUserFromReferral(referrerId);
+                    const currentUser = App.state.userProfile;
+
+                    // Проверяем, что пользователь новый (нет referrer_id), пришел по ссылке и не является сам себе рефералом
+                    if (referrerId && !currentUser.referrer_id && currentUser.id.toString() !== referrerId) {
+                        console.log(`User was referred by: ${referrerId}`);
+                        
+                        // Вызываем серверную функцию для безопасной обработки реферала
+                        const { error } = await App.api.invokeFunction('handle-referral', {
+                            body: { 
+                                referrerId: referrerId,
+                                newUser: App.tg.initDataUnsafe.user
+                            }
+                        });
+
+                        if (error) {
+                            console.error("Referral handling error:", error.message);
+                        } else {
+                            // Обновляем локальные данные, чтобы сразу отобразить бонус
+                            App.state.userProfile.bonus_generations += 1;
+                            App.state.userProfile.referrer_id = referrerId;
+                            App.ui.renderProfilePage();
+                            App.ui.showPopup({
+                                title: 'Бонус!',
+                                message: 'Вы перешли по приглашению и получили 1 бонусную генерацию!',
+                                buttons: [{ type: 'ok' }]
+                            });
+                        }
                     }
                 },
-                async handleNewUserFromReferral(referrerId) {
-                    console.log(`User was referred by: ${referrerId}`);
-                    App.state.referrerId = referrerId;
-                    App.state.bonusGenerations += 1; 
-
-                    await App.api.invokeFunction('handle-actions', {
-                        action: 'award_referral',
-                        referrerId: referrerId, 
-                        newUser: App.tg.initDataUnsafe.user 
-                    });
-                    
-                    await App.stateManager.save();
-                    App.ui.showPopup({
-                        title: 'Бонус!',
-                        message: 'Вы перешли по приглашению и получили 1 бонусную генерацию!',
-                        buttons: [{ type: 'ok' }]
-                    });
-                },
                 generateReferralLink() {
-                    const userId = App.tg.initDataUnsafe?.user?.id;
+                    const userId = App.state.userProfile?.id;
                     if (!userId) return 'Не удалось сгенерировать ссылку.';
                     return `https://t.me/${App.config.botUsername}/${App.config.appName}?startapp=${userId}`;
                 },
                 copyReferralLink() {
                     const link = App.elements.referralLinkInput.value;
+                    // ... (логика копирования остается прежней)
                     const textarea = document.createElement('textarea');
                     textarea.value = link;
                     document.body.appendChild(textarea);
@@ -634,10 +774,7 @@
             paymentManager: {
                 async initiateSubscription() {
                     try {
-                        const { invoiceLink } = await App.api.invokeFunction('handle-actions', {
-                            action: 'create_invoice',
-                            userId: App.tg.initDataUnsafe.user.id
-                        });
+                        const { invoiceLink } = await App.api.invokeFunction('create-invoice');
 
                         if (!invoiceLink) throw new Error('Не удалось получить ссылку на оплату.');
 
@@ -658,18 +795,16 @@
                     }
                 },
                 async activateSubscription(days = 30) {
-                    await App.api.invokeFunction('handle-actions', {
-                        action: 'activate_subscription',
-                        userId: App.tg.initDataUnsafe.user.id,
-                        days: days
-                    });
-                    // Обновляем состояние с сервера, чтобы получить актуальные данные
-                    await App.stateManager.load();
+                    // Серверная функция сама обновит профиль в БД
+                    await App.api.invokeFunction('activate-subscription', { body: { days: days } });
+                    // Перезагружаем профиль, чтобы получить свежие данные о подписке
+                    await App.dataManager.loadInitialData();
                     App.ui.renderSubscriptionStatus(); 
                 }
             },
 
             inspectorManager: {
+                // ... (логика инспектора остается прежней, т.к. она не работает с состоянием пользователя)
                 handleRenderDirectCode() {
                     const htmlContent = App.elements.directCodeInput.value;
                     if (!htmlContent.trim()) {
@@ -727,10 +862,11 @@
                         return;
                     }
                     
-                    const hasFreeGenerations = App.state.dailyGenerations.count < App.config.maxFreeGenerations;
-                    const hasBonusGenerations = App.state.bonusGenerations > 0;
+                    const profile = App.state.userProfile;
+                    const hasFreeGenerations = profile.daily_generations_count < App.config.maxFreeGenerations;
+                    const hasBonusGenerations = profile.bonus_generations > 0;
 
-                    if (!App.state.subscription.isActive && !hasFreeGenerations && !hasBonusGenerations) {
+                    if (!profile.subscription_is_active && !hasFreeGenerations && !hasBonusGenerations) {
                         App.ui.showPopup({
                             title: 'Лимит исчерпан',
                             message: 'Вы использовали все бесплатные генерации. Оформите PRO подписку для неограниченного доступа!',
@@ -746,15 +882,16 @@
 
                     App.ui.toggleGenerationButton(true);
 
-                    if (!App.state.subscription.isActive) {
+                    // Списываем генерацию и сразу обновляем профиль в БД
+                    if (!profile.subscription_is_active) {
                         if (hasBonusGenerations) {
-                            App.state.bonusGenerations--;
+                            await App.dataManager.updateUserProfile({ bonus_generations: profile.bonus_generations - 1 });
                         } else {
-                            App.state.dailyGenerations.count++;
+                            await App.dataManager.updateUserProfile({ daily_generations_count: profile.daily_generations_count + 1 });
                         }
                     }
 
-                    const chat = App.stateManager.getActiveChat();
+                    const chat = App.state.activeChat;
                     chat.messages.push({ sender: 'user', text: prompt });
                     if (chat.title === 'Новый чат' || chat.title.trim() === '') {
                         chat.title = prompt.substring(0, 30) + (prompt.length > 30 ? '...' : '');
@@ -769,7 +906,7 @@
                     try {
                         const systemPrompt = App.api.createCodeGenerationPrompt(prompt, chat.generatedCode);
                         const newCode = await App.api.callGemini(systemPrompt);
-                        const codeMatch = newCode.match(/```(?:html|css|javascript)\n([\s\S]*?)\n```/s);
+                        const codeMatch = newCode.match(/```(?:html|css|javascript|)\n([\s\S]*?)\n```/s);
                         const finalCode = codeMatch ? codeMatch[1] : newCode;
 
                         indicator.remove();
@@ -784,8 +921,7 @@
                         
                         chat.generatedCode = finalCode;
                         
-                        await App.stateManager.save();
-                        App.ui.renderProfilePage(); 
+                        await App.dataManager.saveActiveChat();
                         App.tg.HapticFeedback.notificationOccurred('success');
 
                     } catch (error) {
@@ -794,8 +930,8 @@
                         const errorMessage = `Произошла ошибка: ${error.message}. Убедитесь, что вы указали правильный API-ключ.`;
                         App.ui.addMessageToChat(errorMessage, 'ai');
                         chat.messages.push({ sender: 'ai', text: errorMessage });
+                        await App.dataManager.saveActiveChat(); // Сохраняем сообщение об ошибке
                         App.tg.HapticFeedback.notificationOccurred('error');
-                        await App.stateManager.save();
                     } finally {
                         App.ui.toggleGenerationButton(false);
                     }
@@ -803,8 +939,8 @@
             },
 
             api: {
-                async invokeFunction(name, body) {
-                    const { data, error } = await App.supabase.functions.invoke(name, { body: body });
+                async invokeFunction(name, options) {
+                    const { data, error } = await App.supabase.functions.invoke(name, options);
                     if (error) throw error;
                     return data;
                 },
