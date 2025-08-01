@@ -225,14 +225,23 @@
             <div id="subscription-status" class="bg-[var(--tg-secondary-bg)] p-4 rounded-xl"></div>
             
             <!-- Реферальная программа -->
-            <div id="referral-section" class="bg-[var(--tg-secondary-bg)] p-4 rounded-xl space-y-3">
+            <div class="bg-[var(--tg-secondary-bg)] p-4 rounded-xl space-y-3">
                 <h3 class="text-lg font-bold">Пригласите друзей</h3>
-                <p class="text-sm text-[var(--tg-hint)]">Пригласите друга и получите бонус! Вы получите **10 генераций** за каждого друга, который оформит подписку. Ваш друг получит **1 бонусную генерацию** сразу после перехода по ссылке.</p>
+                <p class="text-sm text-[var(--tg-hint)]">Пригласите друга и получите бонус! Вы получите **1 генерацию** за каждого нового пользователя и **10 генераций**, если он оформит подписку. Ваш друг получит **1 бонусную генерацию** сразу после перехода по ссылке.</p>
                 <div class="flex items-center space-x-2">
                     <input id="referral-link-input" type="text" readonly class="w-full p-2 rounded-lg focus:outline-none bg-[var(--tg-bg)] text-sm">
                     <button id="copy-referral-link-button" class="p-2 rounded-lg bg-[var(--tg-button)] text-[var(--tg-button-text)] btn-transition flex-shrink-0">
                         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
                     </button>
+                </div>
+            </div>
+
+            <!-- Список рефералов -->
+            <div id="referral-list-section" class="bg-[var(--tg-secondary-bg)] p-4 rounded-xl space-y-3">
+                <h3 class="text-lg font-bold">Приглашенные вами</h3>
+                <div id="referral-list" class="space-y-2 max-h-40 overflow-y-auto">
+                    <!-- Сюда будет рендериться список -->
+                    <p class="text-sm text-[var(--tg-hint)]">У вас пока нет рефералов.</p>
                 </div>
             </div>
         </div>
@@ -273,21 +282,21 @@
     document.addEventListener('DOMContentLoaded', () => {
         const App = {
             config: {
-                apiKey: 'AIzaSyBuXjShdZFvr76OKsl7FaL789Dxl3i6bgc', 
-                // ЗАМЕНИТЕ 'YOUR_BOT_USERNAME' и 'YOUR_APP_NAME' на ваши значения
-                botUsername: 'yr_dev_bot',
-                appName: 'aiyrf',
+                apiKey: 'YOUR_API_KEY', 
+                botUsername: 'YOUR_BOT_USERNAME',
+                appName: 'YOUR_APP_NAME',
                 maxFreeGenerations: 5,
-                storageKey: 'aiWebAppBuilderState_v6' // Изменена версия хранилища
+                storageKey: 'aiWebAppBuilderState_v7' // Изменена версия хранилища
             },
             state: {
                 activeChatId: null,
                 chats: [],
                 dailyGenerations: { count: 0, lastReset: 0 },
-                bonusGenerations: 0, // Новое состояние для бонусных генераций
+                bonusGenerations: 0, 
                 subscription: { isActive: false, endDate: null },
                 isGenerating: false,
-                referrerId: null, // ID пользователя, который пригласил текущего
+                referrerId: null, 
+                myReferrals: [], // Список приглашенных пользователей
             },
             elements: {},
             tg: window.Telegram.WebApp,
@@ -297,7 +306,7 @@
                 this.tg.expand();
                 this.cacheDOMElements();
                 this.stateManager.load();
-                this.referralManager.initialize(); // Инициализация реферальной системы
+                this.referralManager.initialize(); 
                 this.specialAccessManager.grantPremiumIfNeeded();
                 this.ui.renderAll();
                 this.eventManager.addEventListeners();
@@ -315,9 +324,9 @@
                     'inspector-code-view', 'inspector-preview-view', 
                     'inspector-code-output', 'inspector-preview-iframe', 'inspector-loader',
                     'url-input-view', 'direct-input-view', 'direct-code-input', 'render-direct-code-button',
-                    // Новые элементы для профиля и реферальной программы
                     'user-profile-card', 'user-avatar', 'user-fullname', 'user-username',
-                    'referral-section', 'referral-link-input', 'copy-referral-link-button'
+                    'copy-referral-link-button', 'referral-link-input',
+                    'referral-list-section', 'referral-list'
                 ];
                 ids.forEach(id => {
                     const camelCaseId = id.replace(/-(\w)/g, (_, c) => c.toUpperCase());
@@ -335,7 +344,6 @@
                     const savedState = localStorage.getItem(App.config.storageKey);
                     if (savedState) {
                         const parsedState = JSON.parse(savedState);
-                        // Объединяем сохраненное состояние с состоянием по умолчанию, чтобы добавить новые поля
                         Object.assign(App.state, parsedState);
                     } else {
                         this.setDefaultState();
@@ -358,6 +366,7 @@
                     }];
                     App.state.bonusGenerations = 0;
                     App.state.referrerId = null;
+                    App.state.myReferrals = []; // Инициализация пустого списка рефералов
                 },
                 checkDateBasedState() {
                     const todayStart = new Date().setHours(0, 0, 0, 0);
@@ -396,6 +405,7 @@
                     this.renderUserProfile();
                     this.renderSubscriptionStatus();
                     this.renderReferralSection();
+                    this.renderReferralList();
                 },
                 renderUserProfile() {
                     const user = App.tg.initDataUnsafe.user;
@@ -425,6 +435,35 @@
                 renderReferralSection() {
                     const link = App.referralManager.generateReferralLink();
                     App.elements.referralLinkInput.value = link;
+                },
+                renderReferralList() {
+                    const listEl = App.elements.referralList;
+                    listEl.innerHTML = ''; // Очищаем список
+                    
+                    // В реальном приложении этот список должен приходить с бэкенда
+                    const referrals = App.state.myReferrals; 
+
+                    if (referrals.length === 0) {
+                        listEl.innerHTML = `<p class="text-sm text-[var(--tg-hint)]">У вас пока нет рефералов.</p>`;
+                        return;
+                    }
+
+                    referrals.forEach(ref => {
+                        const item = document.createElement('div');
+                        item.className = 'flex items-center space-x-3 p-2 rounded-lg';
+                        const avatar = ref.photo_url || `https://placehold.co/40x40/EFEFEF/333333?text=${ref.first_name.charAt(0)}`;
+                        const name = `${ref.first_name || ''} ${ref.last_name || ''}`.trim();
+                        const username = ref.username ? `@${ref.username}` : '';
+                        
+                        item.innerHTML = `
+                            <img src="${avatar}" class="w-10 h-10 rounded-full bg-gray-300">
+                            <div class="flex-grow">
+                                <p class="font-semibold">${name}</p>
+                                <p class="text-xs text-[var(--tg-hint)]">${username}</p>
+                            </div>
+                        `;
+                        listEl.appendChild(item);
+                    });
                 },
                 renderChatList() {
                     const { chats, activeChatId } = App.state;
@@ -608,7 +647,6 @@
 
             referralManager: {
                 initialize() {
-                    // tgWebAppStartParam содержит параметр из реферальной ссылки
                     const referrerId = App.tg.initDataUnsafe?.start_param;
                     if (referrerId && !localStorage.getItem('referral_processed')) {
                         this.handleNewUserFromReferral(referrerId);
@@ -617,7 +655,17 @@
                 handleNewUserFromReferral(referrerId) {
                     console.log(`User was referred by: ${referrerId}`);
                     App.state.referrerId = referrerId;
-                    App.state.bonusGenerations += 1;
+                    App.state.bonusGenerations += 1; // Бонус новому пользователю
+                    
+                    // --- ТРЕБУЕТСЯ БЭКЕНД ---
+                    // Здесь должен быть вызов вашего API для уведомления сервера.
+                    // 1. Сообщить, что текущий пользователь (App.tg.initDataUnsafe.user.id) 
+                    //    был приглашен пользователем с ID referrerId.
+                    // 2. Сервер должен начислить 1 бонусную генерацию пользователю referrerId.
+                    // 3. Сервер должен добавить текущего пользователя в список рефералов referrerId.
+                    console.log(`ТРЕБУЕТСЯ БЭКЕНД: Начислить 1 генерацию пользователю ${referrerId} и добавить текущего пользователя в его рефералы.`);
+                    // --- КОНЕЦ БЛОКА БЭКЕНДА ---
+
                     App.stateManager.save();
                     localStorage.setItem('referral_processed', 'true');
                     App.ui.showPopup({
@@ -652,7 +700,6 @@
             paymentManager: {
                 initiateSubscription() {
                     App.ui.showPopup({ title: 'Подписка', message: 'Функция оплаты в разработке.' });
-                    // Для тестирования можно вызвать активацию напрямую
                     this.activateSubscription();
                 },
                 activateSubscription(days = 30) {
@@ -660,10 +707,12 @@
                     App.state.subscription.isActive = true;
                     App.state.subscription.endDate = new Date(now.setDate(now.getDate() + days)).toISOString();
                     
-                    // Логика начисления бонуса рефереру
                     if (App.state.referrerId) {
-                        console.log(`ТРЕБУЕТСЯ БЭКЕНД: Начислить 10 генераций пользователю ${App.state.referrerId}`);
-                        // Здесь должен быть вызов вашего API для начисления бонуса
+                        // --- ТРЕБУЕТСЯ БЭКЕНД ---
+                        // Здесь должен быть вызов вашего API для начисления бонуса за покупку.
+                        // Сервер должен начислить 10 бонусных генераций пользователю referrerId.
+                        console.log(`ТРЕБУЕТСЯ БЭКЕНД: Начислить 10 генераций пользователю ${App.state.referrerId} за покупку подписки рефералом.`);
+                        // --- КОНЕЦ БЛОКА БЭКЕНДА ---
                     }
 
                     App.stateManager.save();
@@ -729,7 +778,6 @@
                         return;
                     }
                     
-                    // Проверяем лимиты
                     const hasFreeGenerations = App.state.dailyGenerations.count < App.config.maxFreeGenerations;
                     const hasBonusGenerations = App.state.bonusGenerations > 0;
 
@@ -749,7 +797,6 @@
 
                     App.ui.toggleGenerationButton(true);
 
-                    // Списываем генерацию
                     if (!App.state.subscription.isActive) {
                         if (hasBonusGenerations) {
                             App.state.bonusGenerations--;
@@ -789,7 +836,7 @@
                         chat.generatedCode = finalCode;
                         
                         App.stateManager.save();
-                        App.ui.renderProfilePage(); // Обновляем UI профиля, чтобы показать списанную генерацию
+                        App.ui.renderProfilePage(); 
                         App.tg.HapticFeedback.notificationOccurred('success');
 
                     } catch (error) {
