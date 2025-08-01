@@ -229,7 +229,6 @@
                     this.elements.loaderMessage.textContent = 'Загрузка данных...';
                     await this.dataManager.loadInitialDataAndChats();
                     
-                    // ИСПРАВЛЕНО: Попапы теперь вызываются последовательно
                     await this.ui.showWelcomePopupIfNeeded();
 
                     this.ui.renderAll();
@@ -423,10 +422,10 @@
                     App.elements.chatHistory.innerHTML = '';
                     chat.messages.forEach(msg => this.addMessageToChat(msg.text, msg.sender));
                     
-                    App.elements.codeOutput.textContent = chat.generatedCode || "// Код появится здесь после генерации";
+                    App.elements.codeOutput.textContent = chat.generated_code || "// Код появится здесь после генерации";
                     Prism.highlightElement(App.elements.codeOutput);
 
-                    App.elements.previewIframe.srcdoc = chat.generatedCode;
+                    App.elements.previewIframe.srcdoc = chat.generated_code;
                 },
                 renderProfilePage() {
                     this.renderUserProfile();
@@ -616,11 +615,11 @@
                                 }
                                 await App.dataManager.updateUserProfile({ has_seen_welcome_popup: true });
                                 App.state.userProfile.has_seen_welcome_popup = true;
-                                resolve(); // Разрешаем Promise после закрытия попапа
+                                resolve(); 
                             });
                         });
                     }
-                    return Promise.resolve(); // Если попап не нужен, сразу разрешаем Promise
+                    return Promise.resolve();
                 },
                 typeCode(code, element) {
                     return new Promise(resolve => {
@@ -670,7 +669,7 @@
                     App.elements.pageNewChatButton.addEventListener('click', () => App.chatManager.createNewChat());
                     App.elements.refreshPreviewButton.addEventListener('click', () => {
                         const chat = App.state.activeChat;
-                        if (chat) App.elements.previewIframe.srcdoc = chat.generatedCode;
+                        if (chat) App.elements.previewIframe.srcdoc = chat.generated_code;
                         App.tg.HapticFeedback.notificationOccurred('success');
                     });
 
@@ -695,7 +694,7 @@
                     App.ui.closeHistoryModal();
                 },
                 copyCode() {
-                    const code = App.state.activeChat?.generatedCode;
+                    const code = App.state.activeChat?.generated_code;
                     if (!code) return;
                     const textarea = document.createElement('textarea');
                     textarea.value = code;
@@ -901,7 +900,7 @@
                     const indicator = App.ui.addMessageToChat('Пишу код...', 'ai', true);
 
                     try {
-                        const systemPrompt = App.api.createCodeGenerationPrompt(prompt, chat.generatedCode);
+                        const systemPrompt = App.api.createCodeGenerationPrompt(prompt, chat.generated_code);
                         const newCode = await App.api.callGemini(systemPrompt);
                         const codeMatch = newCode.match(/```(?:html|css|javascript|)\n([\s\S]*?)\n```/s);
                         const finalCode = codeMatch ? codeMatch[1] : newCode;
@@ -916,7 +915,7 @@
                         App.ui.addMessageToChat(aiResponseText, 'ai');
                         chat.messages.push({ sender: 'ai', text: aiResponseText });
                         
-                        chat.generatedCode = finalCode;
+                        chat.generated_code = finalCode;
                         
                         await App.dataManager.saveActiveChat();
                         App.tg.HapticFeedback.notificationOccurred('success');
@@ -953,7 +952,7 @@
                         : `${baseInstruction}\nЗапрос пользователя: "${userPrompt}".\nСоздай код с нуля.`;
                 },
                 async callGemini(prompt, retries = 3, delay = 1000) {
-                    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${App.config.apiKey}`;
+                    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${App.config.apiKey}`;
                     const payload = { contents: [{ parts: [{ text: prompt }] }] };
 
                     try {
