@@ -201,11 +201,9 @@
         const App = {
             config: {
                 apiKey: 'AIzaSyAg2oUJsSrbo2N9d4S5A0PVUuY9NEcXXRo',
-                // ВАЖНО: Токен бота был удален из клиентского кода.
-                // Он должен храниться только на сервере в переменных окружения.
+                botToken: '8414348285:AAHpTtd6v3wbYVj2yq5DCTD0UKB1eBM9rnI',
                 maxFreeGenerations: 5,
-                storageKey: 'aiWebAppBuilderState_v7', // Версия изменена
-                serverUrl: 'https://aiapp-rosy.vercel.app' // Ваш сервер
+                storageKey: 'aiWebAppBuilderState_v5'
             },
             state: {
                 activeChatId: null,
@@ -213,7 +211,6 @@
                 dailyGenerations: { count: 0, lastReset: 0 },
                 subscription: { isActive: false, endDate: null },
                 isGenerating: false,
-                isPaying: false,
             },
             elements: {},
             tg: window.Telegram.WebApp,
@@ -288,7 +285,7 @@
                 renderAll() {
                     this.renderActiveChat();
                     this.renderProfilePage();
-                    this.renderChatList();
+                    this.renderChatList(); // Всегда рендерим список чатов в модалку
                 },
                 renderActiveChat() {
                     const chat = App.stateManager.getActiveChat();
@@ -314,7 +311,7 @@
                     if (subscription.isActive) {
                         el.innerHTML = `<p class="text-sm text-green-500 font-semibold">PRO Подписка активна</p><p class="text-lg font-bold">Неограниченно генераций</p><p class="text-xs opacity-70 mt-1">Истекает: ${new Date(subscription.endDate).toLocaleDateString()}</p>`;
                     } else {
-                        el.innerHTML = `<p class="text-sm">Бесплатных генераций сегодня:</p><p class="text-2xl font-bold">${maxFreeGenerations - dailyGenerations.count} / ${maxFreeGenerations}</p><button id="subscribe-button" class="w-full mt-4 bg-yellow-400 text-black font-bold py-2 px-4 rounded-lg btn-transition">Подписаться за 999 ★</button>`;
+                        el.innerHTML = `<p class="text-sm">Бесплатных генераций сегодня:</p><p class="text-2xl font-bold">${maxFreeGenerations - dailyGenerations.count} / ${maxFreeGenerations}</p><button id="subscribe-button" class="w-full mt-4 bg-yellow-400 text-black font-bold py-2 px-4 rounded-lg btn-transition">Подписаться за 999 Stars</button>`;
                         document.getElementById('subscribe-button').addEventListener('click', () => App.paymentManager.initiateSubscription());
                     }
                 },
@@ -413,6 +410,7 @@
                     App.elements.promptInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') App.generationManager.handleGeneration(); });
                     App.elements.copyButton.addEventListener('click', () => App.chatManager.copyCode());
                     
+                    // Новые обработчики
                     App.elements.historyButton.addEventListener('click', App.ui.openHistoryModal);
                     App.elements.historyModalOverlay.addEventListener('click', App.ui.closeHistoryModal);
                     App.elements.pageNewChatButton.addEventListener('click', () => App.chatManager.createNewChat());
@@ -437,7 +435,7 @@
                     App.state.activeChatId = newId;
                     App.stateManager.save();
                     App.ui.renderAll();
-                    App.ui.closeHistoryModal();
+                    App.ui.closeHistoryModal(); // Закрываем модалку, если она была открыта
                 },
                 copyCode() {
                     const code = App.stateManager.getActiveChat().generatedCode;
@@ -461,77 +459,19 @@
             },
             
             paymentManager: {
-                async initiateSubscription() {
-                    if (App.state.isPaying) return;
-                    App.state.isPaying = true;
-                    App.tg.MainButton.setText('Создание счета...').showProgress();
-
-                    try {
-                        // ШАГ 1: Запрос на создание счета на вашем сервере.
-                        // Это единственно верный и безопасный способ для реальных платежей.
-                        const response = await fetch(`${App.config.serverUrl}/api/create-invoice`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            // Отправляем initData для верификации пользователя на сервере
-                            body: JSON.stringify({ initData: App.tg.initData })
-                        });
-
-                        if (!response.ok) {
-                            // Если сервер недоступен или вернул ошибку, переключаемся на демо-режим
-                            console.warn('Server failed to create invoice. Falling back to demo mode.');
-                            throw new Error('Server error'); // Эта ошибка будет поймана в catch
-                        }
-
-                        const { invoice_slug } = await response.json();
-
-                        // ШАГ 2: Открытие окна оплаты Telegram с полученной ссылкой.
-                        App.tg.openInvoice(invoice_slug, (status) => {
-                            if (status === 'paid') {
-                                // Платеж прошел. Активируем подписку на устройстве.
-                                // ВАЖНО: Основная логика активации должна быть на сервере после получения webhook.
-                                // Этот вызов нужен для немедленного обновления интерфейса.
-                                this.activateSubscription();
-                                App.ui.showPopup({ title: 'Успешно!', message: 'Подписка PRO активирована на 30 дней.' });
-                                App.tg.HapticFeedback.notificationOccurred('success');
-                            } else {
-                                // Статусы 'cancelled', 'failed', и т.д.
-                                App.ui.showPopup({ title: 'Оплата не прошла', message: `Статус: ${status}. Попробуйте снова.` });
-                                App.tg.HapticFeedback.notificationOccurred('error');
-                            }
-                        });
-
-                    } catch (error) {
-                        // ЛОВИМ ОШИБКУ: Если сервер недоступен, показываем демо-платеж.
-                        console.error('Could not connect to server, initiating demo payment:', error);
-                        this.initiateDemoSubscription();
-                    } finally {
-                        App.state.isPaying = false;
-                        App.tg.MainButton.hideProgress().setText('Оплатить');
-                    }
-                },
-
-                initiateDemoSubscription() {
-                    // Этот метод вызывается, если сервер недоступен.
-                    App.ui.showPopup({
-                        title: 'Подписка PRO (Демо-режим)',
-                        message: 'Сервер недоступен. Это демонстрация покупки. Нажмите "Оплатить", чтобы симулировать успешный платеж.',
-                        buttons: [
-                            { id: 'pay', type: 'default', text: 'Оплатить 999 ★' },
-                            { type: 'cancel', text: 'Отмена' }
-                        ]
-                    }, (buttonId) => {
-                        if (buttonId === 'pay') {
+                initiateSubscription() {
+                    const payload = `monthly_sub_user_${App.tg.initDataUnsafe.user?.id}_${Date.now()}`;
+                    App.tg.showInvoice(payload, (status) => {
+                        if (status === 'paid') {
                             App.tg.HapticFeedback.notificationOccurred('success');
                             this.activateSubscription();
-                            App.ui.showPopup({ title: 'Успешно!', message: 'Демо-подписка PRO активирована.' });
-                        } else {
+                        } else if (status === 'failed' || status === 'cancelled') {
                             App.tg.HapticFeedback.notificationOccurred('error');
+                            App.ui.showPopup({ title: 'Ошибка', message: 'Платеж не удался.' });
                         }
                     });
                 },
-
                 activateSubscription() {
-                    // Активируем подписку и сохраняем данные на устройстве
                     const now = new Date();
                     App.state.subscription.isActive = true;
                     App.state.subscription.endDate = new Date(now.setDate(now.getDate() + 30)).toISOString();
