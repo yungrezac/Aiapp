@@ -231,10 +231,6 @@
                     await this.dataManager.loadInitialData();
                     console.log("User data loaded:", this.state.userProfile);
 
-                    // Эти модули теперь не нужны, так как логика перенесена в dataManager
-                    // await this.specialAccessManager.grantPremiumIfNeeded();
-                    // await this.referralManager.processReferralOnLoad();
-
                     this.ui.renderAll();
                     this.elements.globalLoader.style.display = 'none';
                     console.log("App Initialized. User:", this.tg.initDataUnsafe.user);
@@ -297,7 +293,7 @@
 
                     // 3. Проверяем, нужно ли сбросить дневные генерации
                     const todayStart = new Date().setHours(0, 0, 0, 0);
-                    if (new Date(profile.daily_generations_last_reset).getTime() < todayStart) {
+                    if (!profile.daily_generations_last_reset || new Date(profile.daily_generations_last_reset).getTime() < todayStart) {
                         const { data: updatedProfile, error: updateError } = await App.supabase
                             .from('profiles')
                             .update({ 
@@ -412,9 +408,6 @@
                 }
             },
             
-            // Остальные модули (ui, eventManager, chatManager и т.д.) остаются почти без изменений,
-            // так как они уже работают с состоянием App.state, которое теперь заполняется из dataManager.
-            // ...
             ui: {
                 renderAll() {
                     this.renderActiveChat();
@@ -711,10 +704,42 @@
             },
 
             paymentManager: {
-                // Этот модуль требует серверных функций для безопасности.
-                // Оставляем его заглушкой, чтобы не было ошибок.
-                initiateSubscription() {
-                    App.ui.showPopup({title: 'Функция недоступна', message: 'Оплата требует настройки серверных функций для безопасности.'});
+                async initiateSubscription() {
+                    try {
+                        const userId = App.state.userProfile.id;
+                        const { invoiceLink } = await App.api.invokeFunction('handle-actions', {
+                            action: 'create_invoice',
+                            userId: userId
+                        });
+
+                        if (!invoiceLink) throw new Error('Не удалось получить ссылку на оплату.');
+
+                        App.tg.openInvoice(invoiceLink, async (status) => {
+                            if (status === 'paid') {
+                                App.tg.HapticFeedback.notificationOccurred('success');
+                                App.ui.showPopup({ title: 'Успешно!', message: 'Подписка активирована.' });
+                                await this.activateSubscription();
+                            } else {
+                                App.tg.HapticFeedback.notificationOccurred('error');
+                                App.ui.showPopup({ title: 'Ошибка', message: `Оплата не удалась. Статус: ${status}` });
+                            }
+                        });
+
+                    } catch (error) {
+                        console.error('Payment initiation error:', error);
+                        App.ui.showPopup({ title: 'Ошибка', message: `Не удалось начать процесс оплаты: ${error.message}` });
+                    }
+                },
+                async activateSubscription(days = 30) {
+                    const userId = App.state.userProfile.id;
+                    await App.api.invokeFunction('handle-actions', {
+                        action: 'activate_subscription',
+                        userId: userId,
+                        days: days
+                    });
+                    // Перезагружаем профиль, чтобы получить свежие данные о подписке
+                    await App.dataManager.loadInitialData();
+                    App.ui.renderSubscriptionStatus(); 
                 }
             },
 
@@ -852,6 +877,11 @@
             },
 
             api: {
+                async invokeFunction(name, body) {
+                    const { data, error } = await App.supabase.functions.invoke(name, { body: body });
+                    if (error) throw error;
+                    return data;
+                },
                 createCodeGenerationPrompt(userPrompt, existingCode) {
                     const baseInstruction = `Твоя задача - быть экспертом по созданию веб-страниц. Ты должен вернуть ТОЛЬКО HTML-код в одном блоке \`\`\`html ... \`\`\`. Без лишних слов, объяснений или комментариев вне кода. Код должен быть полным и самодостаточным (включая HTML, CSS в <style> и JS в <script>). Используй Tailwind CSS для стилизации.`;
                     return existingCode
