@@ -203,7 +203,8 @@
                 apiKey: 'AIzaSyAg2oUJsSrbo2N9d4S5A0PVUuY9NEcXXRo',
                 botToken: '8414348285:AAHpTtd6v3wbYVj2yq5DCTD0UKB1eBM9rnI',
                 maxFreeGenerations: 5,
-                storageKey: 'aiWebAppBuilderState_v5'
+                storageKey: 'aiWebAppBuilderState_v6', // Версия изменена
+                serverUrl: 'https://aiapp-rosy.vercel.app' // Ваш сервер
             },
             state: {
                 activeChatId: null,
@@ -211,6 +212,7 @@
                 dailyGenerations: { count: 0, lastReset: 0 },
                 subscription: { isActive: false, endDate: null },
                 isGenerating: false,
+                isPaying: false,
             },
             elements: {},
             tg: window.Telegram.WebApp,
@@ -285,7 +287,7 @@
                 renderAll() {
                     this.renderActiveChat();
                     this.renderProfilePage();
-                    this.renderChatList(); // Всегда рендерим список чатов в модалку
+                    this.renderChatList();
                 },
                 renderActiveChat() {
                     const chat = App.stateManager.getActiveChat();
@@ -410,7 +412,6 @@
                     App.elements.promptInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') App.generationManager.handleGeneration(); });
                     App.elements.copyButton.addEventListener('click', () => App.chatManager.copyCode());
                     
-                    // Новые обработчики
                     App.elements.historyButton.addEventListener('click', App.ui.openHistoryModal);
                     App.elements.historyModalOverlay.addEventListener('click', App.ui.closeHistoryModal);
                     App.elements.pageNewChatButton.addEventListener('click', () => App.chatManager.createNewChat());
@@ -435,7 +436,7 @@
                     App.state.activeChatId = newId;
                     App.stateManager.save();
                     App.ui.renderAll();
-                    App.ui.closeHistoryModal(); // Закрываем модалку, если она была открыта
+                    App.ui.closeHistoryModal();
                 },
                 copyCode() {
                     const code = App.stateManager.getActiveChat().generatedCode;
@@ -459,50 +460,58 @@
             },
             
             paymentManager: {
-                initiateSubscription() {
-                    // ВАЖНО: Полная и безопасная реализация платежей в Telegram Stars
-                    // требует серверной части (бэкенда).
-                    //
-                    // Правильный процесс:
-                    // 1. Клиент (это приложение) отправляет запрос на ваш сервер для создания инвойса.
-                    // 2. Ваш сервер с помощью Telegram Bot API вызывает метод `createInvoiceLink`,
-                    //    указывая `currency: 'XTR'` и цену в звездах (например, `prices: [{ label: 'Подписка', amount: 999 }]`).
-                    // 3. Telegram возвращает вашему серверу уникальную ссылку-слаг (invoice slug).
-                    // 4. Ваш сервер передает эту ссылку клиенту.
-                    // 5. Клиент вызывает `App.tg.openInvoice(slug, callback)` для отображения окна оплаты.
-                    // 6. После успешной оплаты Telegram отправляет вашему серверу webhook-уведомление.
-                    // 7. Ваш сервер проверяет уведомление и только после этого активирует подписку в базе данных.
-                    //
-                    // Так как это приложение полностью клиентское, мы симулируем этот процесс.
-                    App.ui.showPopup({
-                        title: 'Подписка PRO',
-                        message: 'Приобрести подписку на 1 месяц за 999 Telegram Stars?',
-                        buttons: [
-                            { id: 'pay', type: 'default', text: 'Оплатить 999 ★' },
-                            { type: 'cancel', text: 'Отмена' }
-                        ]
-                    }, (buttonId) => {
-                        if (buttonId === 'pay') {
-                            // --- СИМУЛЯЦИЯ УСПЕШНОГО ПЛАТЕЖА ---
-                            // В реальном приложении здесь был бы вызов App.tg.openInvoice(slug, ...)
-                            
-                            App.tg.HapticFeedback.notificationOccurred('success');
-                            
-                            // ВНИМАНИЕ: Следующая строка небезопасна для продакшена!
-                            // Активация подписки должна происходить на сервере после получения webhook.
-                            // Мы делаем это здесь только для демонстрации.
-                            this.activateSubscription();
-                            
-                            App.ui.showPopup({
-                                title: 'Успешно!',
-                                message: 'Подписка PRO активирована на 30 дней.'
-                            });
-                        } else {
-                            App.tg.HapticFeedback.notificationOccurred('error');
+                async initiateSubscription() {
+                    if (App.state.isPaying) return;
+                    App.state.isPaying = true;
+                    App.tg.MainButton.showProgress();
+
+                    try {
+                        // 1. Клиент запрашивает ссылку на инвойс у своего сервера
+                        const response = await fetch(`${App.config.serverUrl}/api/create-invoice`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ initData: App.tg.initData })
+                        });
+
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            throw new Error(errorData.error || 'Не удалось создать счет.');
                         }
-                    });
+
+                        const { invoice_slug } = await response.json();
+
+                        // 2. Клиент открывает окно оплаты с полученной ссылкой
+                        App.tg.openInvoice(invoice_slug, (status) => {
+                            if (status === 'paid') {
+                                // 3. Пользователь видит успех. Реальная активация происходит на сервере через webhook.
+                                // Мы можем обновить статус здесь для немедленного отклика UI,
+                                // но это должно быть подтверждено с сервера.
+                                this.activateSubscription();
+                                App.ui.showPopup({
+                                    title: 'Успешно!',
+                                    message: 'Подписка PRO активирована на 30 дней. Обновление может занять до минуты.'
+                                });
+                                App.tg.HapticFeedback.notificationOccurred('success');
+                            } else if (status === 'cancelled') {
+                                App.ui.showPopup({ title: 'Отменено', message: 'Оплата была отменена.' });
+                                App.tg.HapticFeedback.notificationOccurred('warning');
+                            } else {
+                                App.ui.showPopup({ title: 'Ошибка', message: `Статус платежа: ${status}. Попробуйте снова.` });
+                                App.tg.HapticFeedback.notificationOccurred('error');
+                            }
+                        });
+
+                    } catch (error) {
+                        console.error('Payment initiation error:', error);
+                        App.ui.showPopup({ title: 'Ошибка сервера', message: error.message });
+                    } finally {
+                        App.state.isPaying = false;
+                        App.tg.MainButton.hideProgress();
+                    }
                 },
                 activateSubscription() {
+                    // Этот метод вызывается для немедленного обновления UI.
+                    // Основная логика должна быть на сервере.
                     const now = new Date();
                     App.state.subscription.isActive = true;
                     App.state.subscription.endDate = new Date(now.setDate(now.getDate() + 30)).toISOString();
