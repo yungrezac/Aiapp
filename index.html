@@ -160,7 +160,7 @@
                 </div>
                 <button id="invite-friend-button" class="w-full mt-2 bg-[var(--tg-button)] text-[var(--tg-button-text)] font-bold py-2 px-4 rounded-lg btn-transition">Пригласить</button>
             </div>
-            <div id="referral-list-section" class="bg-[var(--tg-secondary-bg)] p-4 rounded-xl space-y-3">
+            <div id="referral-list-section" class="bg-[var(--tg-secondary-bg)] p-4 rounded-xl space-y-3 hidden">
                 <div class="flex items-center justify-between">
                      <h3 class="text-lg font-bold">Приглашенные вами</h3>
                      <span id="referral-count" class="text-sm font-bold bg-[var(--tg-button)] text-[var(--tg-button-text)] px-2 py-1 rounded-full">0</span>
@@ -459,8 +459,7 @@
                             <p class="text-sm">Бесплатных генераций сегодня:</p>
                             <p class="text-2xl font-bold">${remaining < 0 ? 0 : remaining} / ${maxFreeGenerations}</p>
                             ${bonus_generations > 0 ? `<p class="text-sm text-blue-500 mt-1">Бонусных генераций: ${bonus_generations}</p>` : ''}
-                            <button id="subscribe-button" class="w-full mt-4 bg-yellow-400 text-black font-bold py-2 px-4 rounded-lg btn-transition">Подписаться за 999 Stars</button>`;
-                        document.getElementById('subscribe-button')?.addEventListener('click', () => App.paymentManager.initiateSubscription());
+                            `;
                     }
                 },
                 async renderReferralList() {
@@ -795,33 +794,11 @@
             },
 
             paymentManager: {
-                async initiateSubscription() {
-                    try {
-                        const userId = App.state.userProfile.id;
-                        const { data, error } = await App.api.invokeFunction('handle-actions', {
-                            action: 'create_invoice',
-                            userId: userId
-                        });
-
-                        if (error) throw error;
-                        if (!data.invoiceLink) throw new Error('Не удалось получить ссылку на оплату.');
-
-                        App.tg.openInvoice(data.invoiceLink, async (status) => {
-                            if (status === 'paid') {
-                                App.tg.HapticFeedback.notificationOccurred('success');
-                                App.ui.showPopup({ title: 'Успешно!', message: 'Подписка активирована.' });
-                                await App.dataManager.loadInitialDataAndChats();
-                                App.ui.renderSubscriptionStatus();
-                            } else {
-                                App.tg.HapticFeedback.notificationOccurred('error');
-                                App.ui.showPopup({ title: 'Ошибка', message: `Оплата не удалась. Статус: ${status}` });
-                            }
-                        });
-
-                    } catch (error) {
-                        console.error('Payment initiation error:', error);
-                        App.ui.showPopup({ title: 'Ошибка', message: `Не удалось начать процесс оплаты: ${error.message}` });
-                    }
+                initiateSubscription() {
+                    App.ui.showPopup({
+                        title: 'Недоступно',
+                        message: 'Скоро будет доступно в вашем регионе'
+                    });
                 }
             },
 
@@ -970,7 +947,7 @@
                     return data;
                 },
                 createCodeGenerationPrompt(userPrompt, existingCode) {
-                    const baseInstruction = `Твоя задача - быть экспертом по созданию веб-страниц. Ты должен вернуть ТОЛЬКО HTML-код в одном блоке \`\`\`html ... \`\`\`. Без лишних слов, объяснений или комментариев вне кода. Код должен быть полным и самодостаточным (включая HTML, CSS в <style> и JS в <script>). Используй Tailwind CSS для стилизации.`;
+                    const baseInstruction = `Твоя задача - быть экспертом по созданию веб-приложений. Ты должен вернуть ТОЛЬКО HTML-код в одном блоке \`\`\`html ... \`\`\`. Без лишних слов, объяснений или комментариев вне кода. Код должен быть полным и самодостаточным (включая HTML, CSS в <style> и JS в <script>). Используй Tailwind CSS для стилизации.`;
                     return existingCode
                         ? `${baseInstruction}\nВот существующий код:\n\n${existingCode}\n\nЗапрос пользователя: "${userPrompt}".\nИзмени код и верни новую полную версию.`
                         : `${baseInstruction}\nЗапрос пользователя: "${userPrompt}".\nСоздай код с нуля.`;
