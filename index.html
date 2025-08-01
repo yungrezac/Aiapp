@@ -161,25 +161,58 @@
             </div>
         </div>
 
-        <!-- СТРАНИЦА 3: ПРОФИЛЬ -->
+        <!-- СТРАНИЦА 3: ИНСПЕКТОР КОДА -->
+        <div id="inspector-page" class="page flex-col h-full">
+            <div class="flex-shrink-0 p-3 border-b border-[var(--tg-secondary-bg)] bg-[var(--tg-bg)]">
+                <h2 class="text-xl font-bold text-center">Инспектор Кода</h2>
+                <p class="text-center text-sm text-[var(--tg-hint)]">Введите URL сайта, чтобы посмотреть его код.</p>
+            </div>
+            <div class="flex-shrink-0 flex items-center space-x-2 p-2 bg-[var(--tg-bg)] border-b border-[var(--tg-secondary-bg)]">
+                <input id="url-input" type="url" placeholder="https://example.com" class="w-full p-3 rounded-full focus:outline-none bg-[var(--tg-secondary-bg)] text-[var(--tg-text)] placeholder-[var(--tg-hint)]">
+                <button id="load-url-button" class="p-3 rounded-full transition-opacity btn-transition flex-shrink-0 bg-[var(--tg-button)] text-[var(--tg-button-text)]" aria-label="Загрузить">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.47 5.47 0 00-1.1 1.143 4.002 4.002 0 00-7.8 1.857A4.002 4.002 0 003 15z" /></svg>
+                </button>
+            </div>
+            <div class="flex-shrink-0 flex border-b border-[var(--tg-secondary-bg)] bg-[var(--tg-bg)]">
+                <button data-view="inspector-code" class="sub-nav-button active w-1/2 p-4 text-center text-[var(--tg-hint)]">Код</button>
+                <button data-view="inspector-preview" class="sub-nav-button w-1/2 p-4 text-center text-[var(--tg-hint)]">Превью</button>
+            </div>
+            <div id="inspector-code-view" class="flex-grow flex flex-col overflow-hidden">
+                 <div class="flex-grow overflow-auto bg-[#2d2d2d]">
+                    <pre><code id="inspector-code-output" class="language-html text-sm p-4 block whitespace-pre-wrap font-mono">// Вставьте URL и нажмите "Загрузить", чтобы увидеть код.</code></pre>
+                </div>
+            </div>
+            <div id="inspector-preview-view" class="flex-grow hidden bg-white relative">
+                <iframe id="inspector-preview-iframe" class="w-full h-full border-0"></iframe>
+                <div id="inspector-loader" class="absolute inset-0 bg-white bg-opacity-75 flex-col items-center justify-center hidden">
+                    <div class="loader" style="width: 32px; height: 32px;"></div>
+                    <p class="mt-4 text-lg font-semibold text-[var(--tg-text)]">Загрузка...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- СТРАНИЦА 4: ПРОФИЛЬ -->
         <div id="profile-page" class="page p-4 overflow-y-auto flex-col h-full">
             <h2 class="text-2xl font-bold mb-4 flex-shrink-0">Профиль</h2>
             <div id="subscription-status" class="bg-[var(--tg-secondary-bg)] p-4 rounded-lg mb-6 flex-shrink-0"></div>
-            <!-- История чатов была перенесена в модальное окно -->
         </div>
     </main>
 
     <!-- НИЖНЯЯ НАВИГАЦИОННАЯ ПАНЕЛЬ -->
     <footer class="flex-shrink-0 h-20 bg-[var(--tg-bg)] border-t border-[var(--tg-secondary-bg)] flex justify-around items-center">
-        <button data-page="chat-page" class="nav-button active flex flex-col items-center justify-center w-full h-full" aria-label="Чат">
+        <button data-page="chat-page" class="nav-button active flex flex-col items-center justify-center p-2 h-full" aria-label="Чат">
             <svg class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
             <span class="text-xs">Чат</span>
         </button>
-        <button data-page="creation-page" class="nav-button flex flex-col items-center justify-center w-full h-full" aria-label="Создание">
+        <button data-page="creation-page" class="nav-button flex flex-col items-center justify-center p-2 h-full" aria-label="Создание">
             <svg class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
             <span class="text-xs">Создание</span>
         </button>
-        <button data-page="profile-page" class="nav-button flex flex-col items-center justify-center w-full h-full" aria-label="Профиль">
+        <button data-page="inspector-page" class="nav-button flex flex-col items-center justify-center p-2 h-full" aria-label="Инспектор">
+            <svg class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            <span class="text-xs">Инспектор</span>
+        </button>
+        <button data-page="profile-page" class="nav-button flex flex-col items-center justify-center p-2 h-full" aria-label="Профиль">
             <svg class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
             <span class="text-xs">Профиль</span>
         </button>
@@ -231,7 +264,11 @@
                     'generate-button', 'code-view', 'preview-view', 'code-output', 'preview-iframe', 
                     'copy-button', 'subscription-status', 'chat-list', 'chat-title',
                     'history-button', 'page-new-chat-button', 'refresh-preview-button',
-                    'history-modal-overlay', 'history-modal-panel'
+                    'history-modal-overlay', 'history-modal-panel',
+                    // Новые элементы для инспектора
+                    'inspector-page', 'url-input', 'load-url-button', 
+                    'inspector-code-view', 'inspector-preview-view', 
+                    'inspector-code-output', 'inspector-preview-iframe', 'inspector-loader'
                 ];
                 ids.forEach(id => {
                     const camelCaseId = id.replace(/-(\w)/g, (_, c) => c.toUpperCase());
@@ -239,7 +276,8 @@
                 });
                 this.elements.pages = document.querySelectorAll('.page');
                 this.elements.navButtons = document.querySelectorAll('.nav-button');
-                this.elements.subNavButtons = document.querySelectorAll('.sub-nav-button');
+                this.elements.subNavButtons = document.querySelectorAll('#creation-page .sub-nav-button');
+                this.elements.subNavButtonsInspector = document.querySelectorAll('#inspector-page .sub-nav-button');
             },
 
             stateManager: {
@@ -285,7 +323,7 @@
                 renderAll() {
                     this.renderActiveChat();
                     this.renderProfilePage();
-                    this.renderChatList(); // Всегда рендерим список чатов в модалку
+                    this.renderChatList();
                 },
                 renderActiveChat() {
                     const chat = App.stateManager.getActiveChat();
@@ -359,14 +397,19 @@
                     App.elements.codeView.classList.toggle('hidden', view !== 'code');
                     App.elements.previewView.classList.toggle('hidden', view !== 'preview');
                 },
+                toggleInspectorView(view) {
+                    App.elements.subNavButtonsInspector.forEach(b => b.classList.toggle('active', b.dataset.view === view));
+                    App.elements.inspectorCodeView.classList.toggle('hidden', view !== 'inspector-code');
+                    App.elements.inspectorPreviewView.classList.toggle('hidden', view !== 'inspector-preview');
+                },
                 toggleGenerationButton(disabled) {
                     App.state.isGenerating = disabled;
                     App.elements.generateButton.disabled = disabled;
                     App.elements.generateButton.style.opacity = disabled ? '0.7' : '1';
                     App.elements.generateButton.style.cursor = disabled ? 'not-allowed' : 'pointer';
                 },
-                showPopup(options) {
-                    App.tg.showPopup(options);
+                showPopup(options, callback) {
+                    App.tg.showPopup(options, callback);
                 },
                 typeCode(code, element) {
                     return new Promise(resolve => {
@@ -410,7 +453,6 @@
                     App.elements.promptInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') App.generationManager.handleGeneration(); });
                     App.elements.copyButton.addEventListener('click', () => App.chatManager.copyCode());
                     
-                    // Новые обработчики
                     App.elements.historyButton.addEventListener('click', App.ui.openHistoryModal);
                     App.elements.historyModalOverlay.addEventListener('click', App.ui.closeHistoryModal);
                     App.elements.pageNewChatButton.addEventListener('click', () => App.chatManager.createNewChat());
@@ -419,6 +461,11 @@
                         if (chat) App.elements.previewIframe.srcdoc = chat.generatedCode;
                         App.tg.HapticFeedback.notificationOccurred('success');
                     });
+
+                    // Новые обработчики для инспектора
+                    App.elements.loadUrlButton.addEventListener('click', () => App.inspectorManager.handleLoadUrl());
+                    App.elements.urlInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') App.inspectorManager.handleLoadUrl(); });
+                    App.elements.subNavButtonsInspector.forEach(button => button.addEventListener('click', () => App.ui.toggleInspectorView(button.dataset.view)));
                 }
             },
 
@@ -435,7 +482,7 @@
                     App.state.activeChatId = newId;
                     App.stateManager.save();
                     App.ui.renderAll();
-                    App.ui.closeHistoryModal(); // Закрываем модалку, если она была открыта
+                    App.ui.closeHistoryModal();
                 },
                 copyCode() {
                     const code = App.stateManager.getActiveChat().generatedCode;
@@ -460,16 +507,9 @@
             
             paymentManager: {
                 initiateSubscription() {
-                    const payload = `monthly_sub_user_${App.tg.initDataUnsafe.user?.id}_${Date.now()}`;
-                    App.tg.showInvoice(payload, (status) => {
-                        if (status === 'paid') {
-                            App.tg.HapticFeedback.notificationOccurred('success');
-                            this.activateSubscription();
-                        } else if (status === 'failed' || status === 'cancelled') {
-                            App.tg.HapticFeedback.notificationOccurred('error');
-                            App.ui.showPopup({ title: 'Ошибка', message: 'Платеж не удался.' });
-                        }
-                    });
+                    // Эта функция требует настройки на стороне вашего бэкенда для создания инвойса
+                    // Здесь используется заглушка
+                    App.ui.showPopup({ title: 'Подписка', message: 'Функция оплаты в разработке.' });
                 },
                 activateSubscription() {
                     const now = new Date();
@@ -477,6 +517,38 @@
                     App.state.subscription.endDate = new Date(now.setDate(now.getDate() + 30)).toISOString();
                     App.stateManager.save();
                     App.ui.renderSubscriptionStatus(); 
+                }
+            },
+
+            inspectorManager: {
+                async handleLoadUrl() {
+                    const url = App.elements.urlInput.value.trim();
+                    if (!url) {
+                        App.ui.showPopup({ title: 'Ошибка', message: 'Пожалуйста, введите URL.' });
+                        return;
+                    }
+
+                    App.elements.inspectorLoader.style.display = 'flex';
+                    App.elements.loadUrlButton.disabled = true;
+
+                    try {
+                        const htmlContent = await App.api.fetchUrlContent(url);
+                        
+                        App.elements.inspectorCodeOutput.textContent = htmlContent;
+                        Prism.highlightElement(App.elements.inspectorCodeOutput);
+                        
+                        App.elements.inspectorPreviewIframe.srcdoc = htmlContent;
+
+                        App.tg.HapticFeedback.notificationOccurred('success');
+
+                    } catch (error) {
+                        console.error('Fetch URL Error:', error);
+                        App.ui.showPopup({ title: 'Ошибка загрузки', message: `Не удалось загрузить код с ${url}. Убедитесь, что URL правильный и сайт доступен. Ошибка: ${error.message}` });
+                        App.tg.HapticFeedback.notificationOccurred('error');
+                    } finally {
+                        App.elements.inspectorLoader.style.display = 'none';
+                        App.elements.loadUrlButton.disabled = false;
+                    }
                 }
             },
 
@@ -586,6 +658,19 @@
                             throw error;
                         }
                     }
+                },
+                async fetchUrlContent(url) {
+                    // Используем CORS-прокси для обхода политики одного источника (Same-Origin Policy)
+                    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+                    
+                    const response = await fetch(proxyUrl);
+                    
+                    if (!response.ok) {
+                        throw new Error(`Не удалось получить ответ от сервера. Статус: ${response.status}`);
+                    }
+                    
+                    const textContent = await response.text();
+                    return textContent;
                 }
             }
         };
