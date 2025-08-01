@@ -311,7 +311,7 @@
                     if (subscription.isActive) {
                         el.innerHTML = `<p class="text-sm text-green-500 font-semibold">PRO Подписка активна</p><p class="text-lg font-bold">Неограниченно генераций</p><p class="text-xs opacity-70 mt-1">Истекает: ${new Date(subscription.endDate).toLocaleDateString()}</p>`;
                     } else {
-                        el.innerHTML = `<p class="text-sm">Бесплатных генераций сегодня:</p><p class="text-2xl font-bold">${maxFreeGenerations - dailyGenerations.count} / ${maxFreeGenerations}</p><button id="subscribe-button" class="w-full mt-4 bg-yellow-400 text-black font-bold py-2 px-4 rounded-lg btn-transition">Подписаться за 999 Stars</button>`;
+                        el.innerHTML = `<p class="text-sm">Бесплатных генераций сегодня:</p><p class="text-2xl font-bold">${maxFreeGenerations - dailyGenerations.count} / ${maxFreeGenerations}</p><button id="subscribe-button" class="w-full mt-4 bg-yellow-400 text-black font-bold py-2 px-4 rounded-lg btn-transition">Подписаться за 999 ★</button>`;
                         document.getElementById('subscribe-button').addEventListener('click', () => App.paymentManager.initiateSubscription());
                     }
                 },
@@ -460,14 +460,45 @@
             
             paymentManager: {
                 initiateSubscription() {
-                    const payload = `monthly_sub_user_${App.tg.initDataUnsafe.user?.id}_${Date.now()}`;
-                    App.tg.showInvoice(payload, (status) => {
-                        if (status === 'paid') {
+                    // ВАЖНО: Полная и безопасная реализация платежей в Telegram Stars
+                    // требует серверной части (бэкенда).
+                    //
+                    // Правильный процесс:
+                    // 1. Клиент (это приложение) отправляет запрос на ваш сервер для создания инвойса.
+                    // 2. Ваш сервер с помощью Telegram Bot API вызывает метод `createInvoiceLink`,
+                    //    указывая `currency: 'XTR'` и цену в звездах (например, `prices: [{ label: 'Подписка', amount: 999 }]`).
+                    // 3. Telegram возвращает вашему серверу уникальную ссылку-слаг (invoice slug).
+                    // 4. Ваш сервер передает эту ссылку клиенту.
+                    // 5. Клиент вызывает `App.tg.openInvoice(slug, callback)` для отображения окна оплаты.
+                    // 6. После успешной оплаты Telegram отправляет вашему серверу webhook-уведомление.
+                    // 7. Ваш сервер проверяет уведомление и только после этого активирует подписку в базе данных.
+                    //
+                    // Так как это приложение полностью клиентское, мы симулируем этот процесс.
+                    App.ui.showPopup({
+                        title: 'Подписка PRO',
+                        message: 'Приобрести подписку на 1 месяц за 999 Telegram Stars?',
+                        buttons: [
+                            { id: 'pay', type: 'default', text: 'Оплатить 999 ★' },
+                            { type: 'cancel', text: 'Отмена' }
+                        ]
+                    }, (buttonId) => {
+                        if (buttonId === 'pay') {
+                            // --- СИМУЛЯЦИЯ УСПЕШНОГО ПЛАТЕЖА ---
+                            // В реальном приложении здесь был бы вызов App.tg.openInvoice(slug, ...)
+                            
                             App.tg.HapticFeedback.notificationOccurred('success');
+                            
+                            // ВНИМАНИЕ: Следующая строка небезопасна для продакшена!
+                            // Активация подписки должна происходить на сервере после получения webhook.
+                            // Мы делаем это здесь только для демонстрации.
                             this.activateSubscription();
-                        } else if (status === 'failed' || status === 'cancelled') {
+                            
+                            App.ui.showPopup({
+                                title: 'Успешно!',
+                                message: 'Подписка PRO активирована на 30 дней.'
+                            });
+                        } else {
                             App.tg.HapticFeedback.notificationOccurred('error');
-                            App.ui.showPopup({ title: 'Ошибка', message: 'Платеж не удался.' });
                         }
                     });
                 },
