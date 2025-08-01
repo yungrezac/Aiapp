@@ -50,7 +50,7 @@
         
         /* Стили для активных кнопок навигации */
         .nav-button.active { color: var(--tg-button); }
-        .sub-nav-button.active { border-bottom: 2px solid var(--tg-button); color: var(--tg-button); font-weight: 600; }
+        .sub-nav-button.active, .inspector-input-tab.active { border-bottom: 2px solid var(--tg-button); color: var(--tg-button); font-weight: 600; }
 
         /* Плавные переходы для кнопок */
         .btn-transition { transition: background-color 0.2s, opacity 0.2s, transform 0.1s; }
@@ -165,21 +165,36 @@
         <div id="inspector-page" class="page flex-col h-full">
             <div class="flex-shrink-0 p-3 border-b border-[var(--tg-secondary-bg)] bg-[var(--tg-bg)]">
                 <h2 class="text-xl font-bold text-center">Инспектор Кода</h2>
-                <p class="text-center text-sm text-[var(--tg-hint)]">Введите URL сайта, чтобы посмотреть его код.</p>
             </div>
-            <div class="flex-shrink-0 flex items-center space-x-2 p-2 bg-[var(--tg-bg)] border-b border-[var(--tg-secondary-bg)]">
-                <input id="url-input" type="url" placeholder="https://example.com" class="w-full p-3 rounded-full focus:outline-none bg-[var(--tg-secondary-bg)] text-[var(--tg-text)] placeholder-[var(--tg-hint)]">
-                <button id="load-url-button" class="p-3 rounded-full transition-opacity btn-transition flex-shrink-0 bg-[var(--tg-button)] text-[var(--tg-button-text)]" aria-label="Загрузить">
-                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.47 5.47 0 00-1.1 1.143 4.002 4.002 0 00-7.8 1.857A4.002 4.002 0 003 15z" /></svg>
-                </button>
+            <!-- Вкладки для выбора метода ввода -->
+            <div class="flex-shrink-0 flex border-b border-[var(--tg-secondary-bg)] bg-[var(--tg-bg)]">
+                <button data-input-view="url" class="inspector-input-tab active w-1/2 p-3 text-center text-sm font-medium">По URL</button>
+                <button data-input-view="direct" class="inspector-input-tab w-1/2 p-3 text-center text-sm font-medium text-[var(--tg-hint)]">Вставить код</button>
             </div>
+            
+            <!-- Контейнер для различных методов ввода -->
+            <div id="inspector-inputs" class="flex-shrink-0">
+                <!-- Ввод URL -->
+                <div id="url-input-view" class="flex items-center space-x-2 p-2 bg-[var(--tg-bg)]">
+                    <input id="url-input" type="url" placeholder="https://example.com" class="w-full p-3 rounded-full focus:outline-none bg-[var(--tg-secondary-bg)] text-[var(--tg-text)] placeholder-[var(--tg-hint)]">
+                    <button id="load-url-button" class="p-3 rounded-full transition-opacity btn-transition flex-shrink-0 bg-[var(--tg-button)] text-[var(--tg-button-text)]" aria-label="Загрузить">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.47 5.47 0 00-1.1 1.143 4.002 4.002 0 00-7.8 1.857A4.002 4.002 0 003 15z" /></svg>
+                    </button>
+                </div>
+                <!-- Прямой ввод кода -->
+                <div id="direct-input-view" class="hidden p-2 flex flex-col">
+                    <textarea id="direct-code-input" class="w-full h-24 p-2 rounded-lg bg-[var(--tg-secondary-bg)] text-[var(--tg-text)] placeholder-[var(--tg-hint)] font-mono text-sm" placeholder="Вставьте ваш HTML код сюда..."></textarea>
+                    <button id="render-direct-code-button" class="mt-2 bg-[var(--tg-button)] text-[var(--tg-button-text)] py-2 px-4 rounded-lg btn-transition">Отобразить</button>
+                </div>
+            </div>
+
             <div class="flex-shrink-0 flex border-b border-[var(--tg-secondary-bg)] bg-[var(--tg-bg)]">
                 <button data-view="inspector-code" class="sub-nav-button active w-1/2 p-4 text-center text-[var(--tg-hint)]">Код</button>
                 <button data-view="inspector-preview" class="sub-nav-button w-1/2 p-4 text-center text-[var(--tg-hint)]">Превью</button>
             </div>
             <div id="inspector-code-view" class="flex-grow flex flex-col overflow-hidden">
                  <div class="flex-grow overflow-auto bg-[#2d2d2d]">
-                    <pre><code id="inspector-code-output" class="language-html text-sm p-4 block whitespace-pre-wrap font-mono">// Вставьте URL и нажмите "Загрузить", чтобы увидеть код.</code></pre>
+                    <pre><code id="inspector-code-output" class="language-html text-sm p-4 block whitespace-pre-wrap font-mono">// Вставьте URL или код и нажмите "Загрузить/Отобразить".</code></pre>
                 </div>
             </div>
             <div id="inspector-preview-view" class="flex-grow hidden bg-white relative">
@@ -268,7 +283,8 @@
                     // Новые элементы для инспектора
                     'inspector-page', 'url-input', 'load-url-button', 
                     'inspector-code-view', 'inspector-preview-view', 
-                    'inspector-code-output', 'inspector-preview-iframe', 'inspector-loader'
+                    'inspector-code-output', 'inspector-preview-iframe', 'inspector-loader',
+                    'url-input-view', 'direct-input-view', 'direct-code-input', 'render-direct-code-button'
                 ];
                 ids.forEach(id => {
                     const camelCaseId = id.replace(/-(\w)/g, (_, c) => c.toUpperCase());
@@ -278,6 +294,7 @@
                 this.elements.navButtons = document.querySelectorAll('.nav-button');
                 this.elements.subNavButtons = document.querySelectorAll('#creation-page .sub-nav-button');
                 this.elements.subNavButtonsInspector = document.querySelectorAll('#inspector-page .sub-nav-button');
+                this.elements.inspectorInputTabs = document.querySelectorAll('#inspector-page .inspector-input-tab');
             },
 
             stateManager: {
@@ -397,6 +414,14 @@
                     App.elements.codeView.classList.toggle('hidden', view !== 'code');
                     App.elements.previewView.classList.toggle('hidden', view !== 'preview');
                 },
+                toggleInspectorInputView(view) {
+                    App.elements.inspectorInputTabs.forEach(b => {
+                        b.classList.toggle('active', b.dataset.inputView === view);
+                        b.classList.toggle('text-[var(--tg-hint)]', b.dataset.inputView !== view);
+                    });
+                    App.elements.urlInputView.classList.toggle('hidden', view !== 'url');
+                    App.elements.directInputView.classList.toggle('hidden', view !== 'direct');
+                },
                 toggleInspectorView(view) {
                     App.elements.subNavButtonsInspector.forEach(b => b.classList.toggle('active', b.dataset.view === view));
                     App.elements.inspectorCodeView.classList.toggle('hidden', view !== 'inspector-code');
@@ -463,8 +488,10 @@
                     });
 
                     // Новые обработчики для инспектора
+                    App.elements.inspectorInputTabs.forEach(button => button.addEventListener('click', () => App.ui.toggleInspectorInputView(button.dataset.inputView)));
                     App.elements.loadUrlButton.addEventListener('click', () => App.inspectorManager.handleLoadUrl());
                     App.elements.urlInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') App.inspectorManager.handleLoadUrl(); });
+                    App.elements.renderDirectCodeButton.addEventListener('click', () => App.inspectorManager.handleRenderDirectCode());
                     App.elements.subNavButtonsInspector.forEach(button => button.addEventListener('click', () => App.ui.toggleInspectorView(button.dataset.view)));
                 }
             },
@@ -521,6 +548,20 @@
             },
 
             inspectorManager: {
+                handleRenderDirectCode() {
+                    const htmlContent = App.elements.directCodeInput.value;
+                    if (!htmlContent.trim()) {
+                        App.ui.showPopup({ title: 'Ошибка', message: 'Поле для кода пустое.' });
+                        return;
+                    }
+
+                    App.elements.inspectorCodeOutput.textContent = htmlContent;
+                    Prism.highlightElement(App.elements.inspectorCodeOutput);
+                    
+                    App.elements.inspectorPreviewIframe.srcdoc = htmlContent;
+                    App.tg.HapticFeedback.notificationOccurred('success');
+                    App.ui.toggleInspectorView('inspector-preview');
+                },
                 async handleLoadUrl() {
                     const url = App.elements.urlInput.value.trim();
                     if (!url) {
