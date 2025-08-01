@@ -473,13 +473,12 @@
                         console.error("Failed to load referrals:", error);
                         return;
                     }
-                    App.state.myReferrals = data.map(r => r.profiles);
-
+                    
                     const listEl = App.elements.referralList;
                     const countEl = App.elements.referralCount;
                     listEl.innerHTML = ''; 
                     
-                    const referrals = App.state.myReferrals || []; 
+                    const referrals = data || []; 
                     countEl.textContent = referrals.length;
 
                     if (referrals.length === 0) {
@@ -488,12 +487,15 @@
                     }
 
                     referrals.forEach(ref => {
-                        if (!ref) return;
+                        const profile = ref.profiles;
+                        const referredId = ref.referred_id;
+
                         const item = document.createElement('div');
                         item.className = 'flex items-center space-x-3 p-2 rounded-lg';
-                        const avatar = ref.photo_url || `https://placehold.co/40x40/EFEFEF/333333?text=${(ref.full_name || 'U').charAt(0)}`;
-                        const name = ref.full_name || 'User';
-                        const username = ref.username ? `@${ref.username}` : '';
+
+                        const avatar = profile?.photo_url || `https://placehold.co/40x40/EFEFEF/333333?text=${(profile?.full_name || 'ID').charAt(0)}`;
+                        const name = profile?.full_name || `Пользователь #${referredId}`;
+                        const username = profile?.username ? `@${profile.username}` : 'Профиль еще не создан';
                         
                         item.innerHTML = `
                             <img src="${avatar}" class="w-10 h-10 rounded-full bg-gray-300">
