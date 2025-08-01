@@ -798,7 +798,6 @@
                 async initiateSubscription() {
                     try {
                         const userId = App.state.userProfile.id;
-                        // Вызываем серверную функцию для создания счета
                         const { data, error } = await App.api.invokeFunction('handle-actions', {
                             action: 'create_invoice',
                             userId: userId
@@ -807,12 +806,10 @@
                         if (error) throw error;
                         if (!data.invoiceLink) throw new Error('Не удалось получить ссылку на оплату.');
 
-                        // Открываем окно оплаты Telegram
                         App.tg.openInvoice(data.invoiceLink, async (status) => {
                             if (status === 'paid') {
                                 App.tg.HapticFeedback.notificationOccurred('success');
                                 App.ui.showPopup({ title: 'Успешно!', message: 'Подписка активирована.' });
-                                // Обновляем данные пользователя, чтобы сразу увидеть изменения
                                 await App.dataManager.loadInitialDataAndChats();
                                 App.ui.renderSubscriptionStatus();
                             } else {
