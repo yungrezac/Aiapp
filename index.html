@@ -11,8 +11,10 @@
     <!-- Подключение Telegram Web App SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     
+    <!-- Стили приложения -->
     <style>
         :root {
+            /* Переменные темы Telegram для светлой и темной темы */
             --tg-bg: var(--tg-theme-bg-color, #ffffff);
             --tg-text: var(--tg-theme-text-color, #000000);
             --tg-hint: var(--tg-theme-hint-color, #999999);
@@ -20,343 +22,564 @@
             --tg-button: var(--tg-theme-button-color, #007aff);
             --tg-button-text: var(--tg-theme-button-text-color, #ffffff);
             --tg-secondary-bg: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            --tg-header-bg: var(--tg-theme-header-bg-color, #ffffff);
         }
         body {
             background-color: var(--tg-bg);
             color: var(--tg-text);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            margin: 0; padding: 0; padding-bottom: 80px;
-            overscroll-behavior: none;
+            margin: 0;
+            padding: 0;
+            overscroll-behavior: none; /* Отключает "потягивание" для обновления страницы */
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
-        .nav-button.active { color: var(--tg-button); }
-        .page { display: none; animation: fadeIn 0.3s; height: calc(100vh - 80px); }
-        .page.active { display: flex; flex-direction: column; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        .chat-bubble { max-width: 85%; padding: 10px 15px; border-radius: 20px; margin-bottom: 10px; word-wrap: break-word; }
+        /* Анимация появления страниц */
+        .page { display: none; animation: fadeIn 0.3s ease-in-out; }
+        .page.active { display: flex; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+
+        /* Стили для сообщений в чате */
+        .chat-bubble { max-width: 85%; padding: 10px 15px; border-radius: 20px; margin-bottom: 10px; word-wrap: break-word; line-height: 1.4; }
         .user-bubble { background-color: var(--tg-button); color: var(--tg-button-text); align-self: flex-end; border-bottom-right-radius: 5px; }
         .ai-bubble { background-color: var(--tg-secondary-bg); color: var(--tg-text); align-self: flex-start; border-bottom-left-radius: 5px; }
-        #prompt-input { background-color: var(--tg-secondary-bg); color: var(--tg-text); }
-        #prompt-input::placeholder { color: var(--tg-hint); }
-        #generate-button { background-color: var(--tg-button); color: var(--tg-button-text); }
-        #generate-button:disabled { opacity: 0.7; cursor: not-allowed; }
-        .sub-nav-button.active { border-bottom: 2px solid var(--tg-button); color: var(--tg-button); }
+        
+        /* Стили для активных кнопок навигации */
+        .nav-button.active { color: var(--tg-button); }
+        .sub-nav-button.active { border-bottom: 2px solid var(--tg-button); color: var(--tg-button); font-weight: 600; }
+
+        /* Плавные переходы для кнопок */
+        .btn-transition { transition: background-color 0.2s, opacity 0.2s, transform 0.1s; }
+        .btn-transition:active { transform: scale(0.95); }
+
+        /* Индикатор загрузки */
+        .loader {
+            width: 18px;
+            height: 18px;
+            border: 2px solid var(--tg-text);
+            border-bottom-color: transparent;
+            border-radius: 50%;
+            display: inline-block;
+            box-sizing: border-box;
+            animation: rotation 1s linear infinite;
+        }
+        @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
-<body class="overflow-hidden">
+<body class="flex flex-col h-screen">
 
     <!-- Основной контейнер для страниц -->
-    <main>
+    <main class="flex-grow overflow-hidden flex flex-col">
         <!-- СТРАНИЦА 1: ЧАТ С ИИ -->
-        <div id="chat-page" class="page active">
+        <div id="chat-page" class="page active flex-col h-full">
             <div id="chat-history" class="flex-grow p-4 flex flex-col space-y-2 overflow-y-auto"></div>
-            <div class="mt-auto flex items-center space-x-2 p-2 bg-[var(--tg-bg)] border-t border-[var(--tg-secondary-bg)]">
-                <input id="prompt-input" type="text" placeholder="Ваш запрос..." class="w-full p-3 rounded-full focus:outline-none">
-                <button id="generate-button" class="p-3 rounded-full transition-opacity"><svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg></button>
+            <div class="flex-shrink-0 flex items-center space-x-2 p-2 bg-[var(--tg-bg)] border-t border-[var(--tg-secondary-bg)]">
+                <input id="prompt-input" type="text" placeholder="Ваш запрос..." class="w-full p-3 rounded-full focus:outline-none bg-[var(--tg-secondary-bg)] text-[var(--tg-text)] placeholder-[var(--tg-hint)]">
+                <button id="generate-button" class="p-3 rounded-full transition-opacity btn-transition flex-shrink-0 bg-[var(--tg-button)] text-[var(--tg-button-text)]" aria-label="Сгенерировать">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
+                </button>
             </div>
         </div>
 
-        <!-- СТРАНИЦА 2: СОЗДАНИЕ (КОД + ПРЕВЬЮ) -->
-        <div id="creation-page" class="page">
-            <div class="flex-shrink-0 flex border-b border-[var(--tg-secondary-bg)]">
-                <button data-view="code" class="sub-nav-button active w-1/2 p-4 text-center font-semibold">Код</button>
-                <button data-view="preview" class="sub-nav-button w-1/2 p-4 text-center font-semibold">Превью</button>
+        <!-- СТРАНИЦA 2: СОЗДАНИЕ (КОД + ПРЕВЬЮ) -->
+        <div id="creation-page" class="page flex-col h-full">
+            <div class="flex-shrink-0 flex border-b border-[var(--tg-secondary-bg)] bg-[var(--tg-bg)]">
+                <button data-view="code" class="sub-nav-button active w-1/2 p-4 text-center text-[var(--tg-hint)]">Код</button>
+                <button data-view="preview" class="sub-nav-button w-1/2 p-4 text-center text-[var(--tg-hint)]">Превью</button>
             </div>
-            <div id="code-view" class="flex-grow flex flex-col">
-                <div class="p-4 flex-shrink-0 flex justify-end items-center bg-[var(--tg-bg)] border-b border-[var(--tg-secondary-bg)]"><div class="flex space-x-2"><button id="explain-button" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg text-sm font-semibold">Объяснить ✨</button><button id="copy-button" class="bg-[var(--tg-button)] text-[var(--tg-button-text)] px-4 py-2 rounded-lg text-sm">Копировать</button></div></div>
-                <div class="flex-grow overflow-auto bg-[#2d2d2d] text-white"><pre><code id="code-output" class="text-sm p-4 block whitespace-pre-wrap font-mono"></code></pre></div>
+            <div id="code-view" class="flex-grow flex flex-col overflow-hidden">
+                <div class="p-2 flex-shrink-0 flex justify-end items-center space-x-2 bg-[var(--tg-bg)] border-b border-[var(--tg-secondary-bg)]">
+                    <button id="explain-button" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg text-sm font-semibold btn-transition">Объяснить ✨</button>
+                    <button id="copy-button" class="bg-[var(--tg-button)] text-[var(--tg-button-text)] px-4 py-2 rounded-lg text-sm btn-transition">Копировать</button>
+                </div>
+                <div class="flex-grow overflow-auto bg-[#2d2d2d] text-white">
+                    <pre><code id="code-output" class="text-sm p-4 block whitespace-pre-wrap font-mono"></code></pre>
+                </div>
             </div>
-            <div id="preview-view" class="flex-grow hidden"><iframe id="preview-iframe" class="w-full h-full border-0"></iframe></div>
+            <div id="preview-view" class="flex-grow hidden bg-white"><iframe id="preview-iframe" class="w-full h-full border-0"></iframe></div>
         </div>
 
         <!-- СТРАНИЦА 3: ПРОФИЛЬ -->
-        <div id="profile-page" class="page p-4 overflow-y-auto">
-            <h2 class="text-2xl font-bold mb-4">Профиль</h2>
-            <div id="subscription-status" class="bg-[var(--tg-secondary-bg)] p-4 rounded-lg mb-6"></div>
-            <div class="flex justify-between items-center mb-4"><h3 class="text-xl font-bold">История чатов</h3><button id="new-chat-button" class="bg-[var(--tg-button)] text-[var(--tg-button-text)] px-4 py-2 rounded-lg text-sm">Новый чат</button></div>
-            <div id="chat-list" class="space-y-2"></div>
+        <div id="profile-page" class="page p-4 overflow-y-auto flex-col h-full">
+            <h2 class="text-2xl font-bold mb-4 flex-shrink-0">Профиль</h2>
+            <div id="subscription-status" class="bg-[var(--tg-secondary-bg)] p-4 rounded-lg mb-6 flex-shrink-0"></div>
+            <div class="flex justify-between items-center mb-4 flex-shrink-0">
+                <h3 class="text-xl font-bold">История чатов</h3>
+                <button id="new-chat-button" class="bg-[var(--tg-button)] text-[var(--tg-button-text)] px-4 py-2 rounded-lg text-sm btn-transition">Новый чат</button>
+            </div>
+            <div id="chat-list" class="space-y-2 overflow-y-auto"></div>
         </div>
     </main>
 
     <!-- НИЖНЯЯ НАВИГАЦИОННАЯ ПАНЕЛЬ -->
-    <footer class="fixed bottom-0 left-0 right-0 h-20 bg-[var(--tg-bg)] border-t border-[var(--tg-secondary-bg)] flex justify-around items-center">
-        <button data-page="chat-page" class="nav-button active flex flex-col items-center justify-center w-full h-full"><svg class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg><span class="text-xs">Чат</span></button>
-        <button data-page="creation-page" class="nav-button flex flex-col items-center justify-center w-full h-full"><svg class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg><span class="text-xs">Создание</span></button>
-        <button data-page="profile-page" class="nav-button flex flex-col items-center justify-center w-full h-full"><svg class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg><span class="text-xs">Профиль</span></button>
+    <footer class="flex-shrink-0 h-20 bg-[var(--tg-bg)] border-t border-[var(--tg-secondary-bg)] flex justify-around items-center">
+        <button data-page="chat-page" class="nav-button active flex flex-col items-center justify-center w-full h-full" aria-label="Чат">
+            <svg class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+            <span class="text-xs">Чат</span>
+        </button>
+        <button data-page="creation-page" class="nav-button flex flex-col items-center justify-center w-full h-full" aria-label="Создание">
+            <svg class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
+            <span class="text-xs">Создание</span>
+        </button>
+        <button data-page="profile-page" class="nav-button flex flex-col items-center justify-center w-full h-full" aria-label="Профиль">
+            <svg class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+            <span class="text-xs">Профиль</span>
+        </button>
     </footer>
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const tg = window.Telegram.WebApp;
-            tg.ready();
-            tg.expand();
-            
-            // --- DOM ELEMENTS ---
-            const pages = document.querySelectorAll('.page');
-            const navButtons = document.querySelectorAll('.nav-button');
-            const subNavButtons = document.querySelectorAll('.sub-nav-button');
-            const generateButton = document.getElementById('generate-button');
-            const promptInput = document.getElementById('prompt-input');
-            const chatHistoryEl = document.getElementById('chat-history');
-            const codeOutputEl = document.getElementById('code-output');
-            const previewIframe = document.getElementById('preview-iframe');
-            const copyButton = document.getElementById('copy-button');
-            const explainButton = document.getElementById('explain-button');
-            const subscriptionStatusEl = document.getElementById('subscription-status');
-            const chatListEl = document.getElementById('chat-list');
-            const newChatButton = document.getElementById('new-chat-button');
-            const codeView = document.getElementById('code-view');
-            const previewView = document.getElementById('preview-view');
+    document.addEventListener('DOMContentLoaded', () => {
+        /**
+         * =================================================================
+         * App: Основной объект приложения
+         * Инкапсулирует всю логику: состояние, UI, API, события.
+         * =================================================================
+         */
+        const App = {
+            // --- КЛЮЧИ И КОНСТАНТЫ (НЕ УДАЛЯТЬ) ---
+            config: {
+                apiKey: 'AIzaSyAg2oUJsSrbo2N9d4S5A0PVUuY9NEcXXRo',
+                botToken: '8414348285:AAHpTtd6v3wbYVj2yq5DCTD0UKB1eBM9rnI', // Используется для тестовых платежей
+                maxFreeGenerations: 5,
+                storageKey: 'aiWebAppBuilderState_v3' // Обновлен ключ для избежания конфликтов со старой версией
+            },
 
-            const apiKey = 'AIzaSyAg2oUJsSrbo2N9d4S5A0PVUuY9NEcXXRo';
-            const MAX_FREE_GENERATIONS = 5;
-            const BOT_TOKEN = '8414348285:AAHpTtd6v3wbYVj2yq5DCTD0UKB1eBM9rnI';
+            // --- СОСТОЯНИЕ ПРИЛОЖЕНИЯ ---
+            state: {
+                activeChatId: null,
+                chats: [],
+                dailyGenerations: { count: 0, lastReset: 0 },
+                subscription: { isActive: false, endDate: null },
+                isGenerating: false,
+            },
 
-            let appState = {};
+            // --- ЭЛЕМЕНТЫ DOM ---
+            elements: {},
 
-            // --- STATE MANAGEMENT ---
-            function loadState() {
-                const defaultState = {
-                    activeChatId: 'chat-1',
-                    chats: [{ id: 'chat-1', title: 'Новый чат', createdAt: new Date().toISOString(), messages: [{ sender: 'ai', text: 'Привет! 👋 Опиши, какое веб-приложение ты хочешь создать.' }], generatedCode: '' }],
-                    dailyGenerations: { count: 0, lastReset: new Date().setHours(0, 0, 0, 0) },
-                    subscription: { isActive: false, endDate: null }
-                };
-                const savedState = localStorage.getItem('aiWebAppBuilderState_v2');
-                appState = savedState ? JSON.parse(savedState) : defaultState;
+            // --- TELEGRAM SDK ---
+            tg: window.Telegram.WebApp,
 
-                const todayStart = new Date().setHours(0, 0, 0, 0);
-                if (appState.dailyGenerations.lastReset < todayStart) {
-                    appState.dailyGenerations.count = 0;
-                    appState.dailyGenerations.lastReset = todayStart;
-                }
-                
-                if (appState.subscription.isActive && new Date(appState.subscription.endDate) < new Date()) {
-                    appState.subscription.isActive = false;
-                    appState.subscription.endDate = null;
-                }
-                saveState();
-            }
+            /**
+             * Инициализация приложения
+             */
+            init() {
+                this.tg.ready();
+                this.tg.expand();
+                this.cacheDOMElements();
+                this.stateManager.load();
+                this.ui.renderAll();
+                this.eventManager.addEventListeners();
+                console.log("App Initialized. User:", this.tg.initDataUnsafe.user);
+            },
 
-            function saveState() {
-                localStorage.setItem('aiWebAppBuilderState_v2', JSON.stringify(appState));
-            }
-
-            function getActiveChat() {
-                return appState.chats.find(chat => chat.id === appState.activeChatId);
-            }
-
-            // --- UI RENDERING ---
-            function renderAll() {
-                renderActiveChat();
-                renderProfilePage();
-            }
-
-            function renderActiveChat() {
-                const chat = getActiveChat();
-                if (!chat) return;
-                chatHistoryEl.innerHTML = '';
-                chat.messages.forEach(msg => addMessageToChat(msg.text, msg.sender));
-                codeOutputEl.textContent = chat.generatedCode;
-                previewIframe.srcdoc = chat.generatedCode;
-            }
-
-            function renderProfilePage() {
-                if (appState.subscription.isActive) {
-                    subscriptionStatusEl.innerHTML = `
-                        <p class="text-sm text-green-500 font-semibold">PRO Подписка активна</p>
-                        <p class="text-lg font-bold">Неограниченно генераций</p>
-                        <p class="text-xs opacity-70 mt-1">Истекает: ${new Date(appState.subscription.endDate).toLocaleDateString()}</p>`;
-                } else {
-                    subscriptionStatusEl.innerHTML = `
-                        <p class="text-sm">Бесплатных генераций сегодня:</p>
-                        <p class="text-2xl font-bold">${MAX_FREE_GENERATIONS - appState.dailyGenerations.count} / ${MAX_FREE_GENERATIONS}</p>
-                        <button id="subscribe-button" class="w-full mt-4 bg-yellow-400 text-black font-bold py-2 px-4 rounded-lg">Подписаться за 999 Stars</button>`;
-                    document.getElementById('subscribe-button').addEventListener('click', handleSubscription);
-                }
-
-                chatListEl.innerHTML = '';
-                appState.chats.slice().reverse().forEach(chat => {
-                    const chatItem = document.createElement('div');
-                    chatItem.className = `p-3 rounded-lg cursor-pointer ${chat.id === appState.activeChatId ? 'bg-[var(--tg-button)] text-[var(--tg-button-text)]' : 'bg-[var(--tg-secondary-bg)]'}`;
-                    chatItem.innerHTML = `<h4 class="font-semibold truncate">${chat.title}</h4><p class="text-xs opacity-70">${new Date(chat.createdAt).toLocaleString()}</p>`;
-                    chatItem.addEventListener('click', () => {
-                        appState.activeChatId = chat.id;
-                        saveState();
-                        renderAll();
-                        navigateToPage('chat-page');
-                    });
-                    chatListEl.appendChild(chatItem);
+            /**
+             * Кэширование ссылок на DOM-элементы для производительности
+             */
+            cacheDOMElements() {
+                const ids = [
+                    'chat-page', 'creation-page', 'profile-page', 'chat-history', 'prompt-input', 
+                    'generate-button', 'code-view', 'preview-view', 'code-output', 'preview-iframe', 
+                    'copy-button', 'explain-button', 'subscription-status', 'chat-list', 'new-chat-button'
+                ];
+                ids.forEach(id => {
+                    const camelCaseId = id.replace(/-(\w)/g, (_, c) => c.toUpperCase());
+                    this.elements[camelCaseId] = document.getElementById(id);
                 });
-            }
+                this.elements.pages = document.querySelectorAll('.page');
+                this.elements.navButtons = document.querySelectorAll('.nav-button');
+                this.elements.subNavButtons = document.querySelectorAll('.sub-nav-button');
+            },
 
-            // --- NAVIGATION ---
-            function navigateToPage(pageId) {
-                pages.forEach(p => p.classList.toggle('active', p.id === pageId));
-                navButtons.forEach(b => b.classList.toggle('active', b.dataset.page === pageId));
-            }
-            navButtons.forEach(button => button.addEventListener('click', () => navigateToPage(button.dataset.page)));
-            subNavButtons.forEach(button => {
-                button.addEventListener('click', () => {
-                    const view = button.dataset.view;
-                    subNavButtons.forEach(b => b.classList.toggle('active', b.dataset.view === view));
-                    codeView.classList.toggle('hidden', view !== 'code');
-                    previewView.classList.toggle('hidden', view !== 'preview');
-                });
-            });
-
-            // --- CHAT MANAGEMENT ---
-            newChatButton.addEventListener('click', () => {
-                const newId = `chat-${Date.now()}`;
-                appState.chats.push({ id: newId, title: 'Новый чат', createdAt: new Date().toISOString(), messages: [{ sender: 'ai', text: 'Новый чат создан. Что будем делать?' }], generatedCode: '' });
-                appState.activeChatId = newId;
-                saveState();
-                renderAll();
-                navigateToPage('chat-page');
-            });
-
-            // --- SUBSCRIPTION & PAYMENT ---
-            function handleSubscription() {
-                const invoice = {
-                    title: 'PRO Подписка (1 месяц)',
-                    description: 'Неограниченный доступ ко всем функциям AI Web App Builder на 30 дней.',
-                    prices: [{ label: 'PRO Подписка', amount: 99900 }], // Amount is in the smallest units of the currency (e.g., cents for USD, 1 star = 1 cent)
-                    currency: 'XTR',
-                    provider_token: BOT_TOKEN, // In a real app, this should be a live payment provider token
-                    payload: `monthly_sub_user_${tg.initDataUnsafe.user?.id}_${Date.now()}`
-                };
-                
-                tg.showInvoice(invoice.payload, (status, invoice_id) => {
-                    if (status === 'paid') {
-                        tg.HapticFeedback.notificationOccurred('success');
-                        
-                        // --- ВАЖНО: СЕРВЕРНАЯ ВАЛИДАЦИЯ ---
-                        // В реальном приложении здесь НЕОБХОДИМО отправить `invoice_id` на ваш сервер.
-                        // Ваш сервер должен получить webhook-уведомление от Telegram, убедиться,
-                        // что платеж действительно прошел, и только после этого активировать подписку в базе данных.
-                        // Клиентская сторона не должна сама активировать подписку.
-                        
-                        // --- СИМУЛЯЦИЯ ДЛЯ ДЕМОНСТРАЦИИ ---
-                        // Мы симулируем успешную активацию подписки на клиенте.
-                        const now = new Date();
-                        appState.subscription.isActive = true;
-                        appState.subscription.endDate = new Date(now.setDate(now.getDate() + 30)).toISOString();
-                        saveState();
-                        renderProfilePage(); // Обновляем UI немедленно
-                        
-                    } else if (status === 'failed' || status === 'cancelled') {
-                        tg.HapticFeedback.notificationOccurred('error');
-                        alert('Платеж не удался. Пожалуйста, попробуйте снова.');
+            /**
+             * =============================================================
+             * stateManager: Управление состоянием (загрузка, сохранение)
+             * =============================================================
+             */
+            stateManager: {
+                parent: this,
+                load() {
+                    const savedState = localStorage.getItem(this.parent.config.storageKey);
+                    if (savedState) {
+                        Object.assign(this.parent.state, JSON.parse(savedState));
+                    } else {
+                        this.setDefaultState();
                     }
-                });
-            }
+                    this.checkDateBasedState();
+                    this.save();
+                },
+                save() {
+                    localStorage.setItem(this.parent.config.storageKey, JSON.stringify(this.parent.state));
+                },
+                setDefaultState() {
+                    const initialChatId = `chat-${Date.now()}`;
+                    this.parent.state.activeChatId = initialChatId;
+                    this.parent.state.chats = [{ 
+                        id: initialChatId, 
+                        title: 'Новый чат', 
+                        createdAt: new Date().toISOString(), 
+                        messages: [{ sender: 'ai', text: 'Привет! 👋 Опиши, какое веб-приложение ты хочешь создать.' }], 
+                        generatedCode: '' 
+                    }];
+                },
+                checkDateBasedState() {
+                    const todayStart = new Date().setHours(0, 0, 0, 0);
+                    if (this.parent.state.dailyGenerations.lastReset < todayStart) {
+                        this.parent.state.dailyGenerations = { count: 0, lastReset: todayStart };
+                    }
+                    if (this.parent.state.subscription.isActive && new Date(this.parent.state.subscription.endDate) < new Date()) {
+                        this.parent.state.subscription = { isActive: false, endDate: null };
+                    }
+                },
+                getActiveChat() {
+                    return this.parent.state.chats.find(chat => chat.id === this.parent.state.activeChatId);
+                }
+            },
 
-            // --- CORE GENERATION LOGIC ---
-            async function handleGeneration() {
-                if (!appState.subscription.isActive && appState.dailyGenerations.count >= MAX_FREE_GENERATIONS) {
-                    tg.showPopup({
-                        title: 'Лимит исчерпан',
-                        message: 'Вы использовали все бесплатные генерации на сегодня. Оформите PRO подписку для неограниченного доступа!',
-                        buttons: [{ id: 'subscribe', type: 'default', text: 'Подписаться' }, { type: 'cancel' }]
-                    }, (buttonId) => {
-                        if (buttonId === 'subscribe') {
-                            navigateToPage('profile-page');
-                            handleSubscription();
+            /**
+             * =============================================================
+             * ui: Управление пользовательским интерфейсом
+             * =============================================================
+             */
+            ui: {
+                parent: this,
+                renderAll() {
+                    this.renderActiveChat();
+                    this.renderProfilePage();
+                },
+                renderActiveChat() {
+                    const chat = this.parent.stateManager.getActiveChat();
+                    if (!chat) return;
+                    
+                    this.parent.elements.chatHistory.innerHTML = '';
+                    chat.messages.forEach(msg => this.addMessageToChat(msg.text, msg.sender));
+                    
+                    this.parent.elements.codeOutput.textContent = chat.generatedCode || "// Код появится здесь после генерации";
+                    this.parent.elements.previewIframe.srcdoc = chat.generatedCode;
+                },
+                renderProfilePage() {
+                    this.renderSubscriptionStatus();
+                    this.renderChatList();
+                },
+                renderSubscriptionStatus() {
+                    const { subscription, dailyGenerations } = this.parent.state;
+                    const { maxFreeGenerations } = this.parent.config;
+                    const el = this.parent.elements.subscriptionStatus;
+
+                    if (subscription.isActive) {
+                        el.innerHTML = `
+                            <p class="text-sm text-green-500 font-semibold">PRO Подписка активна</p>
+                            <p class="text-lg font-bold">Неограниченно генераций</p>
+                            <p class="text-xs opacity-70 mt-1">Истекает: ${new Date(subscription.endDate).toLocaleDateString()}</p>`;
+                    } else {
+                        el.innerHTML = `
+                            <p class="text-sm">Бесплатных генераций сегодня:</p>
+                            <p class="text-2xl font-bold">${maxFreeGenerations - dailyGenerations.count} / ${maxFreeGenerations}</p>
+                            <button id="subscribe-button" class="w-full mt-4 bg-yellow-400 text-black font-bold py-2 px-4 rounded-lg btn-transition">Подписаться за 999 Stars</button>`;
+                        document.getElementById('subscribe-button').addEventListener('click', () => this.parent.paymentManager.initiateSubscription());
+                    }
+                },
+                renderChatList() {
+                    const { chats, activeChatId } = this.parent.state;
+                    const el = this.parent.elements.chatList;
+                    el.innerHTML = '';
+                    
+                    chats.slice().reverse().forEach(chat => {
+                        const chatItem = document.createElement('div');
+                        const isActive = chat.id === activeChatId;
+                        chatItem.className = `p-3 rounded-lg cursor-pointer ${isActive ? 'bg-[var(--tg-button)] text-[var(--tg-button-text)]' : 'bg-[var(--tg-secondary-bg)]'}`;
+                        chatItem.innerHTML = `<h4 class="font-semibold truncate">${chat.title}</h4><p class="text-xs opacity-70">${new Date(chat.createdAt).toLocaleString()}</p>`;
+                        chatItem.addEventListener('click', () => {
+                            this.parent.state.activeChatId = chat.id;
+                            this.parent.stateManager.save();
+                            this.renderAll();
+                            this.navigateToPage('chat-page');
+                        });
+                        el.appendChild(chatItem);
+                    });
+                },
+                addMessageToChat(text, sender, isTyping = false) {
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = `chat-bubble ${sender}-bubble flex items-center`;
+                    
+                    if (isTyping) {
+                        messageDiv.innerHTML = `<span class="loader mr-2"></span><span>${text}</span>`;
+                        messageDiv.id = 'typing-indicator';
+                    } else {
+                        // Простая защита от HTML-инъекций
+                        const textNode = document.createTextNode(text);
+                        messageDiv.appendChild(textNode);
+                    }
+                    
+                    this.parent.elements.chatHistory.appendChild(messageDiv);
+                    this.parent.elements.chatHistory.scrollTop = this.parent.elements.chatHistory.scrollHeight;
+                    return messageDiv;
+                },
+                navigateToPage(pageId) {
+                    this.parent.elements.pages.forEach(p => p.classList.toggle('active', p.id === pageId));
+                    this.parent.elements.navButtons.forEach(b => b.classList.toggle('active', b.dataset.page === pageId));
+                },
+                toggleCodePreview(view) {
+                    this.parent.elements.subNavButtons.forEach(b => b.classList.toggle('active', b.dataset.view === view));
+                    this.parent.elements.codeView.classList.toggle('hidden', view !== 'code');
+                    this.parent.elements.previewView.classList.toggle('hidden', view !== 'preview');
+                },
+                toggleGenerationButton(disabled) {
+                    this.parent.state.isGenerating = disabled;
+                    this.parent.elements.generateButton.disabled = disabled;
+                    this.parent.elements.generateButton.style.opacity = disabled ? '0.7' : '1';
+                    this.parent.elements.generateButton.style.cursor = disabled ? 'not-allowed' : 'pointer';
+                },
+                showPopup(options) {
+                    this.parent.tg.showPopup(options);
+                }
+            },
+
+            /**
+             * =============================================================
+             * eventManager: Управление всеми событиями
+             * =============================================================
+             */
+            eventManager: {
+                parent: this,
+                addEventListeners() {
+                    // Навигация
+                    this.parent.elements.navButtons.forEach(button => button.addEventListener('click', () => this.parent.ui.navigateToPage(button.dataset.page)));
+                    this.parent.elements.subNavButtons.forEach(button => button.addEventListener('click', () => this.parent.ui.toggleCodePreview(button.dataset.view)));
+
+                    // Основные действия
+                    this.parent.elements.generateButton.addEventListener('click', () => this.parent.generationManager.handleGeneration());
+                    this.parent.elements.promptInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') this.parent.generationManager.handleGeneration(); });
+                    this.parent.elements.newChatButton.addEventListener('click', () => this.parent.chatManager.createNewChat());
+                    this.parent.elements.copyButton.addEventListener('click', () => this.parent.chatManager.copyCode());
+                    this.parent.elements.explainButton.addEventListener('click', () => this.parent.generationManager.explainCode());
+                }
+            },
+
+            /**
+             * =============================================================
+             * chatManager: Управление чатами и кодом
+             * =============================================================
+             */
+            chatManager: {
+                parent: this,
+                createNewChat() {
+                    const newId = `chat-${Date.now()}`;
+                    this.parent.state.chats.push({ 
+                        id: newId, 
+                        title: 'Новый чат', 
+                        createdAt: new Date().toISOString(), 
+                        messages: [{ sender: 'ai', text: 'Новый чат создан. Что будем делать?' }], 
+                        generatedCode: '' 
+                    });
+                    this.parent.state.activeChatId = newId;
+                    this.parent.stateManager.save();
+                    this.parent.ui.renderAll();
+                    this.parent.ui.navigateToPage('chat-page');
+                },
+                copyCode() {
+                    const code = this.parent.stateManager.getActiveChat().generatedCode;
+                    if (!code) return;
+
+                    // Используем document.execCommand для лучшей совместимости в iframe
+                    const textarea = document.createElement('textarea');
+                    textarea.value = code;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    try {
+                        document.execCommand('copy');
+                        this.parent.tg.HapticFeedback.notificationOccurred('success');
+                        const originalText = this.parent.elements.copyButton.textContent;
+                        this.parent.elements.copyButton.textContent = 'Скопировано!';
+                        setTimeout(() => { this.parent.elements.copyButton.textContent = originalText; }, 2000);
+                    } catch (err) {
+                        this.parent.tg.HapticFeedback.notificationOccurred('error');
+                        this.parent.ui.showPopup({ title: 'Ошибка', message: 'Не удалось скопировать код.' });
+                    }
+                    document.body.removeChild(textarea);
+                }
+            },
+            
+            /**
+             * =============================================================
+             * paymentManager: Управление подпиской и платежами
+             * =============================================================
+             */
+            paymentManager: {
+                parent: this,
+                initiateSubscription() {
+                    const payload = `monthly_sub_user_${this.parent.tg.initDataUnsafe.user?.id}_${Date.now()}`;
+                    
+                    this.parent.tg.showInvoice(payload, (status) => {
+                         // ВАЖНО: В реальном приложении здесь НЕОБХОДИМО отправить `payload` или другой идентификатор на ваш сервер.
+                         // Ваш сервер должен получить webhook от Telegram (или вашего платежного провайдера),
+                         // убедиться, что платеж действительно прошел, и только после этого активировать подписку в базе данных.
+                         // Клиентская сторона не должна сама активировать подписку. Это небезопасно.
+                        if (status === 'paid') {
+                            this.parent.tg.HapticFeedback.notificationOccurred('success');
+                            this.activateSubscription();
+                        } else if (status === 'failed' || status === 'cancelled') {
+                            this.parent.tg.HapticFeedback.notificationOccurred('error');
+                            this.parent.ui.showPopup({ title: 'Ошибка', message: 'Платеж не удался. Пожалуйста, попробуйте снова.' });
                         }
                     });
-                    return;
+                },
+                // --- СИМУЛЯЦИЯ ДЛЯ ДЕМОНСТРАЦИИ ---
+                // Этот метод должен вызываться только после подтверждения с сервера.
+                activateSubscription() {
+                    const now = new Date();
+                    this.parent.state.subscription.isActive = true;
+                    this.parent.state.subscription.endDate = new Date(now.setDate(now.getDate() + 30)).toISOString();
+                    this.parent.stateManager.save();
+                    this.parent.ui.renderSubscriptionStatus(); 
                 }
-                
-                const prompt = promptInput.value.trim();
-                if (!prompt || generateButton.disabled) return;
+            },
 
-                const chat = getActiveChat();
-                chat.messages.push({ sender: 'user', text: prompt });
-                if (chat.title === 'Новый чат') chat.title = prompt;
-                addMessageToChat(prompt, 'user');
-                promptInput.value = '';
-                generateButton.disabled = true;
+            /**
+             * =============================================================
+             * generationManager: Логика генерации и взаимодействия с API
+             * =============================================================
+             */
+            generationManager: {
+                parent: this,
+                async handleGeneration() {
+                    if (this.parent.state.isGenerating) return;
 
-                const indicator = addMessageToChat('Анализирую запрос...', 'ai', true);
-                
-                try {
-                    const newCode = await generateCodeWithGemini(prompt, chat.generatedCode || null);
-                    chat.generatedCode = newCode;
-                    chat.messages.push({ sender: 'ai', text: 'Готово! Код обновлен.' });
-                    
-                    if (!appState.subscription.isActive) {
-                        appState.dailyGenerations.count++;
+                    if (!this.parent.state.subscription.isActive && this.parent.state.dailyGenerations.count >= this.parent.config.maxFreeGenerations) {
+                        this.parent.ui.showPopup({
+                            title: 'Лимит исчерпан',
+                            message: 'Вы использовали все бесплатные генерации на сегодня. Оформите PRO подписку для неограниченного доступа!',
+                            buttons: [{ id: 'subscribe', type: 'default', text: 'Подписаться' }, { type: 'cancel' }]
+                        }, (buttonId) => {
+                            if (buttonId === 'subscribe') {
+                                this.parent.ui.navigateToPage('profile-page');
+                                this.parent.paymentManager.initiateSubscription();
+                            }
+                        });
+                        return;
                     }
-                    saveState();
+
+                    const prompt = this.parent.elements.promptInput.value.trim();
+                    if (!prompt) return;
+
+                    this.parent.ui.toggleGenerationButton(true);
+
+                    const chat = this.parent.stateManager.getActiveChat();
+                    chat.messages.push({ sender: 'user', text: prompt });
+                    if (chat.title === 'Новый чат') chat.title = prompt.substring(0, 30) + (prompt.length > 30 ? '...' : '');
                     
-                    indicator.remove();
-                    renderAll();
-                    tg.HapticFeedback.notificationOccurred('success');
+                    this.parent.ui.addMessageToChat(prompt, 'user');
+                    this.parent.elements.promptInput.value = '';
+                    
+                    const indicator = this.parent.ui.addMessageToChat('Думаю...', 'ai', true);
 
-                } catch (error) {
-                    indicator.remove();
-                    addMessageToChat(`Произошла ошибка: ${error.message}.`, 'ai');
-                    tg.HapticFeedback.notificationOccurred('error');
-                } finally {
-                    generateButton.disabled = false;
+                    try {
+                        const systemPrompt = this.parent.api.createCodeGenerationPrompt(prompt, chat.generatedCode);
+                        const newCode = await this.parent.api.callGemini(systemPrompt);
+                        
+                        // Извлекаем только блок кода, если модель вернула markdown
+                        const codeMatch = newCode.match(/```html\n([\s\S]*?)\n```/);
+                        const finalCode = codeMatch ? codeMatch[1] : newCode;
+
+                        chat.generatedCode = finalCode;
+                        chat.messages.push({ sender: 'ai', text: 'Готово! Код обновлен. Вы можете посмотреть результат на вкладке "Создание".' });
+
+                        if (!this.parent.state.subscription.isActive) {
+                            this.parent.state.dailyGenerations.count++;
+                        }
+                        
+                        this.parent.tg.HapticFeedback.notificationOccurred('success');
+
+                    } catch (error) {
+                        console.error('Generation Error:', error);
+                        chat.messages.push({ sender: 'ai', text: `Произошла ошибка: ${error.message}. Попробуйте еще раз.` });
+                        this.parent.tg.HapticFeedback.notificationOccurred('error');
+                    } finally {
+                        indicator.remove();
+                        this.parent.stateManager.save();
+                        this.parent.ui.renderAll();
+                        this.parent.ui.toggleGenerationButton(false);
+                    }
+                },
+                async explainCode() {
+                    const code = this.parent.stateManager.getActiveChat().generatedCode;
+                    if (!code) {
+                         this.parent.ui.showPopup({ title: 'Нет кода', message: 'Сначала сгенерируйте код, чтобы я мог его объяснить.' });
+                         return;
+                    }
+
+                    this.parent.ui.showPopup({ title: 'Объяснение кода', message: 'Запрашиваю объяснение у ИИ...' });
+                    try {
+                        const systemPrompt = this.parent.api.createExplanationPrompt(code);
+                        const explanation = await this.parent.api.callGemini(systemPrompt);
+                        this.parent.ui.showPopup({ title: 'Объяснение кода', message: explanation, buttons: [{ type: 'ok' }] });
+                    } catch (error) {
+                        this.parent.ui.showPopup({ title: 'Ошибка', message: `Не удалось получить объяснение: ${error.message}`, buttons: [{ type: 'ok' }] });
+                    }
+                }
+            },
+
+            /**
+             * =============================================================
+             * api: Взаимодействие с Gemini API
+             * =============================================================
+             */
+            api: {
+                parent: this,
+                createCodeGenerationPrompt(userPrompt, existingCode) {
+                    const baseInstruction = `Твоя задача - быть экспертом по созданию веб-страниц. Ты должен вернуть ТОЛЬКО HTML-код в одном блоке \`\`\`html ... \`\`\`.
+Без лишних слов, объяснений или комментариев вне кода. Код должен быть полным и самодостаточным (включая HTML, CSS в <style> и JS в <script>). Используй Tailwind CSS для стилизации.`;
+                    
+                    return existingCode
+                        ? `${baseInstruction}\nВот существующий код:\n\n${existingCode}\n\nЗапрос пользователя: "${userPrompt}".\nИзмени код в соответствии с запросом и верни новую полную версию.`
+                        : `${baseInstruction}\nЗапрос пользователя: "${userPrompt}".\nСоздай код с нуля.`;
+                },
+                createExplanationPrompt(code) {
+                    return `Объясни следующий HTML-код пошагово, простым и понятным русским языком для новичка. Опиши структуру (HTML), стили (CSS) и логику (JavaScript). Вот код:\n\n${code}`;
+                },
+                async callGemini(prompt, retries = 3, delay = 1000) {
+                    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${this.parent.config.apiKey}`;
+                    const payload = { contents: [{ parts: [{ text: prompt }] }] };
+
+                    try {
+                        const response = await fetch(API_URL, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+
+                        if (!response.ok) {
+                            // Если ошибка со стороны клиента или сервера, но не rate limit
+                            if (response.status < 500 && response.status !== 429) {
+                                const errorData = await response.json();
+                                throw new Error(errorData.error?.message || `HTTP ошибка: ${response.status}`);
+                            }
+                            // Для ошибок сервера или rate limit, пробуем снова
+                            throw new Error(`Server error: ${response.status}`);
+                        }
+
+                        const data = await response.json();
+                        if (!data.candidates || !data.candidates[0].content.parts[0].text) {
+                           throw new Error('Получен неверный ответ от API.');
+                        }
+                        return data.candidates[0].content.parts[0].text;
+
+                    } catch (error) {
+                        if (retries > 0) {
+                            console.warn(`Retrying API call... (${retries} retries left). Error: ${error.message}`);
+                            await new Promise(res => setTimeout(res, delay));
+                            return this.callGemini(prompt, retries - 1, delay * 2); // Экспоненциальная задержка
+                        } else {
+                            throw error; // Если все попытки провалились
+                        }
+                    }
                 }
             }
-            generateButton.addEventListener('click', handleGeneration);
-            promptInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleGeneration(); });
+        };
 
-            // --- GEMINI API CALLS ---
-            async function callGemini(prompt) {
-                const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-                const payload = { contents: [{ parts: [{ text: prompt }] }] };
-                const response = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error?.message || `HTTP error! status: ${response.status}`);
-                }
-                const data = await response.json();
-                return data.candidates[0].content.parts[0].text;
-            }
-
-            async function generateCodeWithGemini(userPrompt, existingCode) {
-                const baseInstruction = `Твой ответ должен содержать ТОЛЬКО HTML-код. Без объяснений, без markdown, без комментариев.`;
-                let fullPrompt = existingCode 
-                    ? `${baseInstruction}\nВот существующий код:\n\n${existingCode}\n\nЗапрос пользователя: "${userPrompt}".\nИзмени код и верни новую полную версию.`
-                    : `${baseInstruction}\nЗапрос пользователя: "${userPrompt}".\nСоздай код с нуля.`;
-                return await callGemini(fullPrompt);
-            }
-            
-            // --- HELPER FUNCTIONS ---
-            function addMessageToChat(text, sender, isTyping = false) {
-                const messageDiv = document.createElement('div');
-                messageDiv.className = `chat-bubble ${sender}-bubble`;
-                messageDiv.innerHTML = text;
-                if (isTyping) messageDiv.id = 'typing-indicator';
-                chatHistoryEl.appendChild(messageDiv);
-                chatHistoryEl.scrollTop = chatHistoryEl.scrollHeight;
-                return messageDiv;
-            }
-            
-            copyButton.addEventListener('click', () => {
-                navigator.clipboard.writeText(getActiveChat().generatedCode).then(() => tg.HapticFeedback.notificationOccurred('success'));
-            });
-            
-            explainButton.addEventListener('click', async () => {
-                const code = getActiveChat().generatedCode;
-                if (!code) return;
-                tg.showPopup({title: 'Объяснение кода', message: 'Запрашиваю объяснение у ИИ...'});
-                try {
-                    const prompt = `Объясни следующий HTML-код пошагово, простым русским языком. Вот код:\n\n${code}`;
-                    const explanation = await callGemini(prompt);
-                    tg.showPopup({title: 'Объяснение кода', message: explanation, buttons: [{type: 'ok'}]});
-                } catch (error) {
-                    tg.showPopup({title: 'Ошибка', message: `Не удалось получить объяснение: ${error.message}`, buttons: [{type: 'ok'}]});
-                }
-            });
-
-            // --- INITIALIZATION ---
-            loadState();
-            renderAll();
-        });
+        // --- ЗАПУСК ПРИЛОЖЕНИЯ ---
+        App.init();
+    });
     </script>
 </body>
 </html>
-
