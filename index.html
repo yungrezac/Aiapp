@@ -138,7 +138,6 @@
             <div class="flex-shrink-0 flex items-center space-x-2 p-2 bg-[var(--tg-bg)] border-t border-[var(--tg-secondary-bg)]">
                 <input id="prompt-input" type="text" placeholder="Ваш запрос..." class="w-full p-3 rounded-full focus:outline-none bg-[var(--tg-secondary-bg)] text-[var(--tg-text)] placeholder-[var(--tg-hint)] transition-transform">
                 <button id="generate-button" class="p-3 rounded-full transition-opacity btn-transition flex-shrink-0 bg-[var(--tg-button)] text-[var(--tg-button-text)]" aria-label="Сгенерировать">
-                    <!-- ИЗМЕНЕНО: Иконка заменена на "бумажный самолетик" -->
                     <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" stroke="none"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
                 </button>
             </div>
@@ -253,8 +252,7 @@
     document.addEventListener('DOMContentLoaded', () => {
         const App = {
             config: {
-                // ИЗМЕНЕНО: Замените 'YOUR_API_KEY' на ваш реальный ключ от Google AI Studio
-                apiKey: 'AIzaSyAg2oUJsSrbo2N9d4S5A0PVUuY9NEcXXRo', 
+                apiKey: 'YOUR_API_KEY', 
                 botToken: '8414348285:AAHpTtd6v3wbYVj2yq5DCTD0UKB1eBM9rnI',
                 maxFreeGenerations: 5,
                 storageKey: 'aiWebAppBuilderState_v5'
@@ -274,6 +272,8 @@
                 this.tg.expand();
                 this.cacheDOMElements();
                 this.stateManager.load();
+                // ИЗМЕНЕНО: Добавлена проверка для предоставления специального доступа
+                this.specialAccessManager.grantPremiumIfNeeded();
                 this.ui.renderAll();
                 this.eventManager.addEventListeners();
                 console.log("App Initialized");
@@ -286,7 +286,6 @@
                     'copy-button', 'subscription-status', 'chat-list', 'chat-title',
                     'history-button', 'page-new-chat-button', 'refresh-preview-button',
                     'history-modal-overlay', 'history-modal-panel',
-                    // Новые элементы для инспектора
                     'inspector-page', 'url-input', 'load-url-button', 
                     'inspector-code-view', 'inspector-preview-view', 
                     'inspector-code-output', 'inspector-preview-iframe', 'inspector-loader',
@@ -493,7 +492,6 @@
                         App.tg.HapticFeedback.notificationOccurred('success');
                     });
 
-                    // Новые обработчики для инспектора
                     App.elements.inspectorInputTabs.forEach(button => button.addEventListener('click', () => App.ui.toggleInspectorInputView(button.dataset.inputView)));
                     App.elements.loadUrlButton.addEventListener('click', () => App.inspectorManager.handleLoadUrl());
                     App.elements.urlInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') App.inspectorManager.handleLoadUrl(); });
@@ -538,16 +536,34 @@
                 }
             },
             
+            // ИЗМЕНЕНО: Добавлен новый менеджер для специальных пользователей
+            specialAccessManager: {
+                grantPremiumIfNeeded() {
+                    if (App.tg.initDataUnsafe?.user && !App.state.subscription.isActive) {
+                        const username = App.tg.initDataUnsafe.user.username;
+                        if (username && username.toLowerCase() === 'yung_rezac') {
+                            console.log('Granting special premium access to @yung_rezac');
+                            // Предоставляем доступ на 10 лет
+                            App.paymentManager.activateSubscription(3650); 
+                            App.tg.showPopup({
+                                title: 'Особый доступ',
+                                message: 'Вам предоставлен неограниченный премиум-доступ. Спасибо за вашу поддержку!',
+                                buttons: [{ type: 'ok' }]
+                            });
+                        }
+                    }
+                }
+            },
+
             paymentManager: {
                 initiateSubscription() {
-                    // Эта функция требует настройки на стороне вашего бэкенда для создания инвойса
-                    // Здесь используется заглушка
                     App.ui.showPopup({ title: 'Подписка', message: 'Функция оплаты в разработке.' });
                 },
-                activateSubscription() {
+                // ИЗМЕНЕНО: Добавлен параметр для срока подписки
+                activateSubscription(days = 30) {
                     const now = new Date();
                     App.state.subscription.isActive = true;
-                    App.state.subscription.endDate = new Date(now.setDate(now.getDate() + 30)).toISOString();
+                    App.state.subscription.endDate = new Date(now.setDate(now.getDate() + days)).toISOString();
                     App.stateManager.save();
                     App.ui.renderSubscriptionStatus(); 
                 }
@@ -603,7 +619,6 @@
                 async handleGeneration() {
                     if (App.state.isGenerating) return;
 
-                    // ИЗМЕНЕНО: Добавлена проверка на пустой ввод с обратной связью
                     const prompt = App.elements.promptInput.value.trim();
                     if (!prompt) {
                         App.tg.HapticFeedback.notificationOccurred('error');
@@ -685,7 +700,6 @@
                         : `${baseInstruction}\nЗапрос пользователя: "${userPrompt}".\nСоздай код с нуля.`;
                 },
                 async callGemini(prompt, retries = 3, delay = 1000) {
-                    // ИЗМЕНЕНО: Указана корректная и стабильная модель gemini-1.5-flash-latest
                     const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${App.config.apiKey}`;
                     const payload = { contents: [{ parts: [{ text: prompt }] }] };
 
@@ -696,16 +710,13 @@
                             body: JSON.stringify(payload)
                         });
                         if (!response.ok) {
-                            // Не повторяем попытку при ошибках клиента (4xx), кроме 429 (слишком много запросов)
                             if (response.status < 500 && response.status !== 429) {
                                 const errorData = await response.json();
                                 throw new Error(errorData.error?.message || `HTTP ошибка: ${response.status}`);
                             }
-                            // Для ошибок сервера (5xx) и 429 повторяем попытку
                             throw new Error(`Server error: ${response.status}`);
                         }
                         const data = await response.json();
-                        // Улучшенная проверка ответа
                         if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
                            throw new Error('Получен неверный или пустой ответ от API.');
                         }
@@ -721,7 +732,6 @@
                     }
                 },
                 async fetchUrlContent(url) {
-                    // Используем CORS-прокси для обхода политики одного источника (Same-Origin Policy)
                     const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
                     
                     const response = await fetch(proxyUrl);
