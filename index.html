@@ -463,22 +463,22 @@
                 async renderReferralList() {
                     const userId = App.state.userProfile?.id;
                     if (!userId) return;
-                    
-                    const { data, error } = await App.supabase
+
+                    // ИСПРАВЛЕНИЕ: Используем более надежный способ загрузки данных
+                    // 1. Сначала получаем все записи о рефералах
+                    const { data: referrals, error: referralsError } = await App.supabase
                         .from('referrals')
-                        .select('referred_id, profiles(full_name, username, photo_url)')
+                        .select('referred_id')
                         .eq('referrer_id', userId);
-                    
-                    if (error) {
-                        console.error("Failed to load referrals:", error);
+
+                    if (referralsError) {
+                        console.error("Failed to load referral IDs:", referralsError);
                         return;
                     }
-                    
+
                     const listEl = App.elements.referralList;
                     const countEl = App.elements.referralCount;
-                    listEl.innerHTML = ''; 
-                    
-                    const referrals = data || []; 
+                    listEl.innerHTML = '';
                     countEl.textContent = referrals.length;
 
                     if (referrals.length === 0) {
@@ -486,14 +486,31 @@
                         return;
                     }
 
+                    // 2. Получаем ID всех приглашенных
+                    const referredIds = referrals.map(r => r.referred_id);
+
+                    // 3. Загружаем профили всех приглашенных одним запросом
+                    const { data: profiles, error: profilesError } = await App.supabase
+                        .from('profiles')
+                        .select('id, full_name, username, photo_url')
+                        .in('id', referredIds);
+
+                    if (profilesError) {
+                        console.error("Failed to load referred profiles:", profilesError);
+                    }
+
+                    // 4. Создаем карту для быстрого поиска профиля по ID
+                    const profilesMap = new Map(profiles?.map(p => [p.id, p]));
+
+                    // 5. Отображаем список, используя оба набора данных
                     referrals.forEach(ref => {
-                        const profile = ref.profiles;
+                        const profile = profilesMap.get(ref.referred_id);
                         const referredId = ref.referred_id;
 
                         const item = document.createElement('div');
                         item.className = 'flex items-center space-x-3 p-2 rounded-lg';
 
-                        const avatar = profile?.photo_url || `https://placehold.co/40x40/EFEFEF/333333?text=${(profile?.full_name || 'ID').charAt(0)}`;
+                        const avatar = profile?.photo_url || `https://placehold.co/40x40/EFEFEF/333333?text=ID`;
                         const name = profile?.full_name || `Пользователь #${referredId}`;
                         const username = profile?.username ? `@${profile.username}` : 'Профиль еще не создан';
                         
