@@ -203,8 +203,8 @@
                 apiKey: 'AIzaSyAg2oUJsSrbo2N9d4S5A0PVUuY9NEcXXRo',
                 botToken: '8414348285:AAHpTtd6v3wbYVj2yq5DCTD0UKB1eBM9rnI',
                 maxFreeGenerations: 5,
-                storageKey: 'aiWebAppBuilderState_v6', // Версия изменена
-                serverUrl: 'https://aiapp-rosy.vercel.app' // Ваш сервер
+                storageKey: 'aiWebAppBuilderState_v6',
+                serverUrl: 'https://aiapp-rosy.vercel.app'
             },
             state: {
                 activeChatId: null,
@@ -460,58 +460,44 @@
             },
             
             paymentManager: {
-                async initiateSubscription() {
+                initiateSubscription() {
+                    // ВАЖНО: Это демонстрационный режим.
+                    // Реальные платежи в Telegram Stars требуют серверной части для безопасности.
+                    // Вы не можете безопасно создать счет на оплату только на стороне клиента.
+                    // Этот код показывает, как будет выглядеть процесс для пользователя, но не проводит реальный платеж.
+                    // Чтобы включить реальные платежи, вам нужно реализовать логику на вашем сервере,
+                    // как было описано в предыдущих инструкциях, и заменить этот блок на вызов вашего сервера.
+
                     if (App.state.isPaying) return;
                     App.state.isPaying = true;
-                    App.tg.MainButton.showProgress();
 
-                    try {
-                        // 1. Клиент запрашивает ссылку на инвойс у своего сервера
-                        const response = await fetch(`${App.config.serverUrl}/api/create-invoice`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ initData: App.tg.initData })
-                        });
-
-                        if (!response.ok) {
-                            const errorData = await response.json();
-                            throw new Error(errorData.error || 'Не удалось создать счет.');
-                        }
-
-                        const { invoice_slug } = await response.json();
-
-                        // 2. Клиент открывает окно оплаты с полученной ссылкой
-                        App.tg.openInvoice(invoice_slug, (status) => {
-                            if (status === 'paid') {
-                                // 3. Пользователь видит успех. Реальная активация происходит на сервере через webhook.
-                                // Мы можем обновить статус здесь для немедленного отклика UI,
-                                // но это должно быть подтверждено с сервера.
-                                this.activateSubscription();
-                                App.ui.showPopup({
-                                    title: 'Успешно!',
-                                    message: 'Подписка PRO активирована на 30 дней. Обновление может занять до минуты.'
-                                });
-                                App.tg.HapticFeedback.notificationOccurred('success');
-                            } else if (status === 'cancelled') {
-                                App.ui.showPopup({ title: 'Отменено', message: 'Оплата была отменена.' });
-                                App.tg.HapticFeedback.notificationOccurred('warning');
-                            } else {
-                                App.ui.showPopup({ title: 'Ошибка', message: `Статус платежа: ${status}. Попробуйте снова.` });
-                                App.tg.HapticFeedback.notificationOccurred('error');
-                            }
-                        });
-
-                    } catch (error) {
-                        console.error('Payment initiation error:', error);
-                        App.ui.showPopup({ title: 'Ошибка сервера', message: error.message });
-                    } finally {
+                    App.ui.showPopup({
+                        title: 'Подписка PRO (Демо)',
+                        message: 'Это демонстрация покупки. Нажмите "Оплатить", чтобы симулировать успешный платеж за 999 Telegram Stars.',
+                        buttons: [
+                            { id: 'pay', type: 'default', text: 'Оплатить 999 ★' },
+                            { type: 'cancel', text: 'Отмена' }
+                        ]
+                    }, (buttonId) => {
                         App.state.isPaying = false;
-                        App.tg.MainButton.hideProgress();
-                    }
+                        if (buttonId === 'pay') {
+                            // --- СИМУЛЯЦИЯ УСПЕШНОГО ПЛАТЕЖА ---
+                            App.tg.HapticFeedback.notificationOccurred('success');
+                            
+                            // Активируем подписку локально для демонстрации
+                            this.activateSubscription();
+                            
+                            App.ui.showPopup({
+                                title: 'Успешно!',
+                                message: 'Демо-подписка PRO активирована на 30 дней.'
+                            });
+                        } else {
+                            App.tg.HapticFeedback.notificationOccurred('error');
+                        }
+                    });
                 },
                 activateSubscription() {
-                    // Этот метод вызывается для немедленного обновления UI.
-                    // Основная логика должна быть на сервере.
+                    // Этот метод обновляет UI, как будто платеж прошел успешно
                     const now = new Date();
                     App.state.subscription.isActive = true;
                     App.state.subscription.endDate = new Date(now.setDate(now.getDate() + 30)).toISOString();
