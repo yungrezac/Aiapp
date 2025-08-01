@@ -229,8 +229,8 @@
                     this.elements.loaderMessage.textContent = 'Загрузка данных...';
                     await this.dataManager.loadInitialDataAndChats();
                     
+                    // ИСПРАВЛЕНО: Попапы теперь вызываются последовательно
                     await this.ui.showWelcomePopupIfNeeded();
-                    await this.referralManager.processNewReferral();
 
                     this.ui.renderAll();
                     this.elements.globalLoader.style.display = 'none';
@@ -334,7 +334,7 @@
                             full_name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
                             updated_at: new Date().toISOString(),
                             bonus_generations: App.tg.initDataUnsafe.start_param ? 1 : 0,
-                            has_seen_welcome_popup: false // Устанавливаем флаг для нового пользователя
+                            has_seen_welcome_popup: false
                         })
                         .select()
                         .single();
@@ -507,7 +507,7 @@
                         item.className = 'flex items-center space-x-3 p-2 rounded-lg';
                         
                         const name = profile?.username ? `@${profile.username}` : (profile?.full_name || `Пользователь #${referredId}`);
-                        const subtext = profile?.full_name ? profile.full_name : (profile ? '' : 'Профиль еще не создан');
+                        const subtext = profile?.username ? (profile.full_name || `ID: ${referredId}`) : `ID: ${referredId}`;
                         const avatar = profile?.photo_url || `https://placehold.co/40x40/EFEFEF/333333?text=${(name || 'ID').charAt(0).toUpperCase()}`;
                         
                         item.innerHTML = `
@@ -599,24 +599,28 @@
                 },
                 async showWelcomePopupIfNeeded() {
                     if (App.state.userProfile && !App.state.userProfile.has_seen_welcome_popup) {
-                        App.ui.showPopup({
-                            title: 'Добро пожаловать!',
-                            message: 'Привет я fullstack разработчик YR, а это мой ИИ для создания HTML приложений, блоков, компонетов и тд. Кстати ты можешь его купить за 150 т.р',
-                            buttons: [
-                                { id: 'buy', type: 'default', text: 'Купить' },
-                                { id: 'chat', type: 'default', text: 'Чат' },
-                                { type: 'close' }
-                            ]
-                        }, async (buttonId) => {
-                            if (buttonId === 'buy') {
-                                App.tg.openTelegramLink('https://t.me/yung_rezac');
-                            } else if (buttonId === 'chat') {
-                                App.tg.openTelegramLink('https://t.me/+2_hEfzuqRIpjYTEy');
-                            }
-                            await App.dataManager.updateUserProfile({ has_seen_welcome_popup: true });
-                            App.state.userProfile.has_seen_welcome_popup = true;
+                        return new Promise(resolve => {
+                            App.ui.showPopup({
+                                title: 'Добро пожаловать!',
+                                message: 'Привет я fullstack разработчик YR, а это мой ИИ для создания HTML приложений, блоков, компонетов и тд. Кстати ты можешь его купить за 150 т.р',
+                                buttons: [
+                                    { id: 'buy', type: 'default', text: 'Купить' },
+                                    { id: 'chat', type: 'default', text: 'Чат' },
+                                    { type: 'close' }
+                                ]
+                            }, async (buttonId) => {
+                                if (buttonId === 'buy') {
+                                    App.tg.openTelegramLink('https://t.me/yung_rezac');
+                                } else if (buttonId === 'chat') {
+                                    App.tg.openTelegramLink('https://t.me/+2_hEfzuqRIpjYTEy');
+                                }
+                                await App.dataManager.updateUserProfile({ has_seen_welcome_popup: true });
+                                App.state.userProfile.has_seen_welcome_popup = true;
+                                resolve(); // Разрешаем Promise после закрытия попапа
+                            });
                         });
                     }
+                    return Promise.resolve(); // Если попап не нужен, сразу разрешаем Promise
                 },
                 typeCode(code, element) {
                     return new Promise(resolve => {
