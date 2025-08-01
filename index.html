@@ -211,9 +211,30 @@
         </div>
 
         <!-- СТРАНИЦА 4: ПРОФИЛЬ -->
-        <div id="profile-page" class="page p-4 overflow-y-auto flex-col h-full">
-            <h2 class="text-2xl font-bold mb-4 flex-shrink-0">Профиль</h2>
-            <div id="subscription-status" class="bg-[var(--tg-secondary-bg)] p-4 rounded-lg mb-6 flex-shrink-0"></div>
+        <div id="profile-page" class="page p-4 overflow-y-auto flex-col h-full space-y-4">
+            <!-- Карточка профиля -->
+            <div id="user-profile-card" class="flex items-center space-x-4 p-4 bg-[var(--tg-secondary-bg)] rounded-xl">
+                <img id="user-avatar" src="https://placehold.co/80x80/EFEFEF/333333?text=User" class="w-20 h-20 rounded-full object-cover bg-gray-300">
+                <div class="flex-grow">
+                    <h2 id="user-fullname" class="text-xl font-bold">Имя пользователя</h2>
+                    <p id="user-username" class="text-sm text-[var(--tg-hint)]">@username</p>
+                </div>
+            </div>
+
+            <!-- Статус подписки -->
+            <div id="subscription-status" class="bg-[var(--tg-secondary-bg)] p-4 rounded-xl"></div>
+            
+            <!-- Реферальная программа -->
+            <div id="referral-section" class="bg-[var(--tg-secondary-bg)] p-4 rounded-xl space-y-3">
+                <h3 class="text-lg font-bold">Пригласите друзей</h3>
+                <p class="text-sm text-[var(--tg-hint)]">Пригласите друга и получите бонус! Вы получите **10 генераций** за каждого друга, который оформит подписку. Ваш друг получит **1 бонусную генерацию** сразу после перехода по ссылке.</p>
+                <div class="flex items-center space-x-2">
+                    <input id="referral-link-input" type="text" readonly class="w-full p-2 rounded-lg focus:outline-none bg-[var(--tg-bg)] text-sm">
+                    <button id="copy-referral-link-button" class="p-2 rounded-lg bg-[var(--tg-button)] text-[var(--tg-button-text)] btn-transition flex-shrink-0">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                    </button>
+                </div>
+            </div>
         </div>
     </main>
 
@@ -252,17 +273,21 @@
     document.addEventListener('DOMContentLoaded', () => {
         const App = {
             config: {
-                apiKey: 'AIzaSyBuXjShdZFvr76OKsl7FaL789Dxl3i6bgc', 
-                botToken: '8414348285:AAHpTtd6v3wbYVj2yq5DCTD0UKB1eBM9rnI',
+                apiKey: 'YOUR_API_KEY', 
+                // ЗАМЕНИТЕ 'YOUR_BOT_USERNAME' и 'YOUR_APP_NAME' на ваши значения
+                botUsername: 'YOUR_BOT_USERNAME',
+                appName: 'YOUR_APP_NAME',
                 maxFreeGenerations: 5,
-                storageKey: 'aiWebAppBuilderState_v5'
+                storageKey: 'aiWebAppBuilderState_v6' // Изменена версия хранилища
             },
             state: {
                 activeChatId: null,
                 chats: [],
                 dailyGenerations: { count: 0, lastReset: 0 },
+                bonusGenerations: 0, // Новое состояние для бонусных генераций
                 subscription: { isActive: false, endDate: null },
                 isGenerating: false,
+                referrerId: null, // ID пользователя, который пригласил текущего
             },
             elements: {},
             tg: window.Telegram.WebApp,
@@ -272,11 +297,11 @@
                 this.tg.expand();
                 this.cacheDOMElements();
                 this.stateManager.load();
-                // ИЗМЕНЕНО: Добавлена проверка для предоставления специального доступа
+                this.referralManager.initialize(); // Инициализация реферальной системы
                 this.specialAccessManager.grantPremiumIfNeeded();
                 this.ui.renderAll();
                 this.eventManager.addEventListeners();
-                console.log("App Initialized");
+                console.log("App Initialized. User:", this.tg.initDataUnsafe.user);
             },
 
             cacheDOMElements() {
@@ -289,7 +314,10 @@
                     'inspector-page', 'url-input', 'load-url-button', 
                     'inspector-code-view', 'inspector-preview-view', 
                     'inspector-code-output', 'inspector-preview-iframe', 'inspector-loader',
-                    'url-input-view', 'direct-input-view', 'direct-code-input', 'render-direct-code-button'
+                    'url-input-view', 'direct-input-view', 'direct-code-input', 'render-direct-code-button',
+                    // Новые элементы для профиля и реферальной программы
+                    'user-profile-card', 'user-avatar', 'user-fullname', 'user-username',
+                    'referral-section', 'referral-link-input', 'copy-referral-link-button'
                 ];
                 ids.forEach(id => {
                     const camelCaseId = id.replace(/-(\w)/g, (_, c) => c.toUpperCase());
@@ -306,7 +334,9 @@
                 load() {
                     const savedState = localStorage.getItem(App.config.storageKey);
                     if (savedState) {
-                        Object.assign(App.state, JSON.parse(savedState));
+                        const parsedState = JSON.parse(savedState);
+                        // Объединяем сохраненное состояние с состоянием по умолчанию, чтобы добавить новые поля
+                        Object.assign(App.state, parsedState);
                     } else {
                         this.setDefaultState();
                     }
@@ -326,6 +356,8 @@
                         messages: [{ sender: 'ai', text: 'Привет! 👋 Опиши, какое веб-приложение ты хочешь создать.' }], 
                         generatedCode: '' 
                     }];
+                    App.state.bonusGenerations = 0;
+                    App.state.referrerId = null;
                 },
                 checkDateBasedState() {
                     const todayStart = new Date().setHours(0, 0, 0, 0);
@@ -361,19 +393,38 @@
                     App.elements.previewIframe.srcdoc = chat.generatedCode;
                 },
                 renderProfilePage() {
+                    this.renderUserProfile();
                     this.renderSubscriptionStatus();
+                    this.renderReferralSection();
+                },
+                renderUserProfile() {
+                    const user = App.tg.initDataUnsafe.user;
+                    if (!user) return;
+
+                    App.elements.userAvatar.src = user.photo_url || `https://placehold.co/80x80/EFEFEF/333333?text=${user.first_name.charAt(0)}`;
+                    App.elements.userFullname.textContent = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Anonymous';
+                    App.elements.userUsername.textContent = user.username ? `@${user.username}` : 'No username';
                 },
                 renderSubscriptionStatus() {
-                    const { subscription, dailyGenerations } = App.state;
+                    const { subscription, dailyGenerations, bonusGenerations } = App.state;
                     const { maxFreeGenerations } = App.config;
                     const el = App.elements.subscriptionStatus;
 
                     if (subscription.isActive) {
                         el.innerHTML = `<p class="text-sm text-green-500 font-semibold">PRO Подписка активна</p><p class="text-lg font-bold">Неограниченно генераций</p><p class="text-xs opacity-70 mt-1">Истекает: ${new Date(subscription.endDate).toLocaleDateString()}</p>`;
                     } else {
-                        el.innerHTML = `<p class="text-sm">Бесплатных генераций сегодня:</p><p class="text-2xl font-bold">${maxFreeGenerations - dailyGenerations.count} / ${maxFreeGenerations}</p><button id="subscribe-button" class="w-full mt-4 bg-yellow-400 text-black font-bold py-2 px-4 rounded-lg btn-transition">Подписаться за 999 Stars</button>`;
+                        const remaining = maxFreeGenerations - dailyGenerations.count;
+                        el.innerHTML = `
+                            <p class="text-sm">Бесплатных генераций сегодня:</p>
+                            <p class="text-2xl font-bold">${remaining} / ${maxFreeGenerations}</p>
+                            ${bonusGenerations > 0 ? `<p class="text-sm text-blue-500 mt-1">Бонусных генераций: ${bonusGenerations}</p>` : ''}
+                            <button id="subscribe-button" class="w-full mt-4 bg-yellow-400 text-black font-bold py-2 px-4 rounded-lg btn-transition">Подписаться за 999 Stars</button>`;
                         document.getElementById('subscribe-button').addEventListener('click', () => App.paymentManager.initiateSubscription());
                     }
+                },
+                renderReferralSection() {
+                    const link = App.referralManager.generateReferralLink();
+                    App.elements.referralLinkInput.value = link;
                 },
                 renderChatList() {
                     const { chats, activeChatId } = App.state;
@@ -497,6 +548,8 @@
                     App.elements.urlInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') App.inspectorManager.handleLoadUrl(); });
                     App.elements.renderDirectCodeButton.addEventListener('click', () => App.inspectorManager.handleRenderDirectCode());
                     App.elements.subNavButtonsInspector.forEach(button => button.addEventListener('click', () => App.ui.toggleInspectorView(button.dataset.view)));
+                    
+                    App.elements.copyReferralLinkButton.addEventListener('click', () => App.referralManager.copyReferralLink());
                 }
             },
 
@@ -536,14 +589,12 @@
                 }
             },
             
-            // ИЗМЕНЕНО: Добавлен новый менеджер для специальных пользователей
             specialAccessManager: {
                 grantPremiumIfNeeded() {
                     if (App.tg.initDataUnsafe?.user && !App.state.subscription.isActive) {
                         const username = App.tg.initDataUnsafe.user.username;
                         if (username && username.toLowerCase() === 'yung_rezac') {
                             console.log('Granting special premium access to @yung_rezac');
-                            // Предоставляем доступ на 10 лет
                             App.paymentManager.activateSubscription(3650); 
                             App.tg.showPopup({
                                 title: 'Особый доступ',
@@ -555,15 +606,66 @@
                 }
             },
 
+            referralManager: {
+                initialize() {
+                    // tgWebAppStartParam содержит параметр из реферальной ссылки
+                    const referrerId = App.tg.initDataUnsafe?.start_param;
+                    if (referrerId && !localStorage.getItem('referral_processed')) {
+                        this.handleNewUserFromReferral(referrerId);
+                    }
+                },
+                handleNewUserFromReferral(referrerId) {
+                    console.log(`User was referred by: ${referrerId}`);
+                    App.state.referrerId = referrerId;
+                    App.state.bonusGenerations += 1;
+                    App.stateManager.save();
+                    localStorage.setItem('referral_processed', 'true');
+                    App.ui.showPopup({
+                        title: 'Бонус!',
+                        message: 'Вы перешли по приглашению и получили 1 бонусную генерацию!',
+                        buttons: [{ type: 'ok' }]
+                    });
+                },
+                generateReferralLink() {
+                    const userId = App.tg.initDataUnsafe?.user?.id;
+                    if (!userId) return 'Не удалось сгенерировать ссылку.';
+                    return `https://t.me/${App.config.botUsername}/${App.config.appName}?startapp=${userId}`;
+                },
+                copyReferralLink() {
+                    const link = App.elements.referralLinkInput.value;
+                    const textarea = document.createElement('textarea');
+                    textarea.value = link;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    try {
+                        document.execCommand('copy');
+                        App.tg.HapticFeedback.notificationOccurred('success');
+                        App.ui.showPopup({ title: 'Успешно', message: 'Реферальная ссылка скопирована!' });
+                    } catch (err) {
+                        App.tg.HapticFeedback.notificationOccurred('error');
+                        App.ui.showPopup({ title: 'Ошибка', message: 'Не удалось скопировать ссылку.' });
+                    }
+                    document.body.removeChild(textarea);
+                }
+            },
+
             paymentManager: {
                 initiateSubscription() {
                     App.ui.showPopup({ title: 'Подписка', message: 'Функция оплаты в разработке.' });
+                    // Для тестирования можно вызвать активацию напрямую
+                    this.activateSubscription();
                 },
-                // ИЗМЕНЕНО: Добавлен параметр для срока подписки
                 activateSubscription(days = 30) {
                     const now = new Date();
                     App.state.subscription.isActive = true;
                     App.state.subscription.endDate = new Date(now.setDate(now.getDate() + days)).toISOString();
+                    
+                    // Логика начисления бонуса рефереру
+                    if (App.state.referrerId) {
+                        console.log(`ТРЕБУЕТСЯ БЭКЕНД: Начислить 10 генераций пользователю ${App.state.referrerId}`);
+                        // Здесь должен быть вызов вашего API для начисления бонуса
+                    }
+
                     App.stateManager.save();
                     App.ui.renderSubscriptionStatus(); 
                 }
@@ -626,8 +728,12 @@
                         setTimeout(() => App.elements.promptInput.classList.remove('shake-it'), 300);
                         return;
                     }
+                    
+                    // Проверяем лимиты
+                    const hasFreeGenerations = App.state.dailyGenerations.count < App.config.maxFreeGenerations;
+                    const hasBonusGenerations = App.state.bonusGenerations > 0;
 
-                    if (!App.state.subscription.isActive && App.state.dailyGenerations.count >= App.config.maxFreeGenerations) {
+                    if (!App.state.subscription.isActive && !hasFreeGenerations && !hasBonusGenerations) {
                         App.ui.showPopup({
                             title: 'Лимит исчерпан',
                             message: 'Вы использовали все бесплатные генерации. Оформите PRO подписку для неограниченного доступа!',
@@ -642,6 +748,16 @@
                     }
 
                     App.ui.toggleGenerationButton(true);
+
+                    // Списываем генерацию
+                    if (!App.state.subscription.isActive) {
+                        if (hasBonusGenerations) {
+                            App.state.bonusGenerations--;
+                        } else {
+                            App.state.dailyGenerations.count++;
+                        }
+                    }
+
                     const chat = App.stateManager.getActiveChat();
                     chat.messages.push({ sender: 'user', text: prompt });
                     if (chat.title === 'Новый чат' || chat.title.trim() === '') {
@@ -671,11 +787,9 @@
                         chat.messages.push({ sender: 'ai', text: aiResponseText });
                         
                         chat.generatedCode = finalCode;
-                        if (!App.state.subscription.isActive) {
-                            App.state.dailyGenerations.count++;
-                        }
+                        
                         App.stateManager.save();
-                        App.ui.renderProfilePage();
+                        App.ui.renderProfilePage(); // Обновляем UI профиля, чтобы показать списанную генерацию
                         App.tg.HapticFeedback.notificationOccurred('success');
 
                     } catch (error) {
