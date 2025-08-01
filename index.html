@@ -14,13 +14,12 @@
     <!-- Подключение Prism.js для подсветки синтаксиса -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css" rel="stylesheet" />
     
-    <!-- ИЗМЕНЕНО: Подключение Supabase JS Client -->
+    <!-- Подключение Supabase JS Client -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
     <!-- Стили приложения -->
     <style>
         :root {
-            /* Переменные темы Telegram для светлой и темной темы */
             --tg-bg: var(--tg-theme-bg-color, #ffffff);
             --tg-text: var(--tg-theme-text-color, #000000);
             --tg-hint: var(--tg-theme-hint-color, #999999);
@@ -186,158 +185,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
 
     <script>
-    /*
-    ===================================================================
-    РУКОВОДСТВО ПО НАСТРОЙКЕ SUPABASE
-    ===================================================================
-
-    1. СОЗДАЙТЕ ТАБЛИЦУ `profiles`
-    ---------------------------------
-    Перейдите в ваш проект Supabase -> Table Editor -> Create a new table.
-    Выключите "Enable Row Level Security (RLS)" для простоты на старте.
-    Используйте следующий SQL-скрипт для создания таблицы:
-
-    CREATE TABLE public.profiles (
-        id BIGINT PRIMARY KEY,
-        updated_at TIMESTAMPTZ,
-        username TEXT,
-        full_name TEXT,
-        state JSONB
-    );
-    
-    ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-
-    CREATE POLICY "Public profiles are viewable by everyone."
-    ON public.profiles FOR SELECT
-    USING (true);
-
-    CREATE POLICY "Users can insert their own profile."
-    ON public.profiles FOR INSERT
-    WITH CHECK (auth.uid() = id);
-
-    CREATE POLICY "Users can update own profile."
-    ON public.profiles FOR UPDATE
-    USING (auth.uid() = id);
-
-
-    2. СОЗДАЙТЕ EDGE FUNCTION `award-referral-bonus`
-    --------------------------------------------------
-    Перейдите в Edge Functions -> Create a new function.
-    Название: award-referral-bonus
-    Вставьте следующий код:
-
-    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-    import { corsHeaders } from '../_shared/cors.ts'
-
-    Deno.serve(async (req) => {
-      if (req.method === 'OPTIONS') {
-        return new Response('ok', { headers: corsHeaders })
-      }
-
-      try {
-        const { referrerId, newUser } = await req.json()
-        const supabaseAdmin = createClient(
-          Deno.env.get('SUPABASE_URL') ?? '',
-          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-        )
-
-        // 1. Получаем профиль пригласившего
-        const { data: referrerProfile, error: referrerError } = await supabaseAdmin
-          .from('profiles')
-          .select('state')
-          .eq('id', referrerId)
-          .single()
-
-        if (referrerError) throw referrerError
-
-        const referrerState = referrerProfile.state || {};
-        
-        // 2. Начисляем бонус пригласившему
-        referrerState.bonusGenerations = (referrerState.bonusGenerations || 0) + 1;
-        
-        // 3. Добавляем нового юзера в список рефералов
-        referrerState.myReferrals = referrerState.myReferrals || [];
-        referrerState.myReferrals.push({
-            id: newUser.id,
-            first_name: newUser.first_name,
-            last_name: newUser.last_name,
-            username: newUser.username,
-            photo_url: newUser.photo_url
-        });
-
-        // 4. Обновляем профиль пригласившего
-        const { error: updateError } = await supabaseAdmin
-          .from('profiles')
-          .update({ state: referrerState, updated_at: new Date().toISOString() })
-          .eq('id', referrerId)
-
-        if (updateError) throw updateError
-
-        return new Response(JSON.stringify({ success: true }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
-        })
-      } catch (error) {
-        return new Response(JSON.stringify({ error: error.message }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 400,
-        })
-      }
-    })
-
-    3. СОЗДАЙТЕ EDGE FUNCTION `award-subscription-bonus`
-    -----------------------------------------------------
-    Название: award-subscription-bonus
-    Код:
-
-    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-    import { corsHeaders } from '../_shared/cors.ts'
-
-    Deno.serve(async (req) => {
-      if (req.method === 'OPTIONS') {
-        return new Response('ok', { headers: corsHeaders })
-      }
-      try {
-        const { referrerId } = await req.json()
-        if (!referrerId) throw new Error("Referrer ID is required");
-
-        const supabaseAdmin = createClient(
-          Deno.env.get('SUPABASE_URL') ?? '',
-          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-        )
-
-        const { data: referrerProfile, error: referrerError } = await supabaseAdmin
-          .from('profiles')
-          .select('state')
-          .eq('id', referrerId)
-          .single()
-
-        if (referrerError) throw referrerError
-
-        const referrerState = referrerProfile.state || {};
-        referrerState.bonusGenerations = (referrerState.bonusGenerations || 0) + 10;
-
-        const { error: updateError } = await supabaseAdmin
-          .from('profiles')
-          .update({ state: referrerState, updated_at: new Date().toISOString() })
-          .eq('id', referrerId)
-
-        if (updateError) throw updateError
-
-        return new Response(JSON.stringify({ success: true }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
-        })
-      } catch (error) {
-        return new Response(JSON.stringify({ error: error.message }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 400,
-        })
-      }
-    })
-
-    */
-
     document.addEventListener('DOMContentLoaded', () => {
         const App = {
             config: {
@@ -748,15 +595,11 @@
                     App.state.referrerId = referrerId;
                     App.state.bonusGenerations += 1; 
 
-                    const { error } = await App.supabase.functions.invoke('award-referral-bonus', {
-                        body: { referrerId: referrerId, newUser: App.tg.initDataUnsafe.user }
+                    await App.api.invokeFunction('handle-actions', {
+                        action: 'award_referral',
+                        referrerId: referrerId, 
+                        newUser: App.tg.initDataUnsafe.user 
                     });
-
-                    if (error) {
-                        console.error('Error awarding referral bonus:', error);
-                    } else {
-                        console.log('Successfully awarded referral bonus via Edge Function.');
-                    }
                     
                     await App.stateManager.save();
                     App.ui.showPopup({
@@ -790,23 +633,38 @@
 
             paymentManager: {
                 async initiateSubscription() {
-                    App.ui.showPopup({ title: 'Подписка', message: 'Функция оплаты в разработке.' });
-                    await this.activateSubscription();
+                    try {
+                        const { invoiceLink } = await App.api.invokeFunction('handle-actions', {
+                            action: 'create_invoice',
+                            userId: App.tg.initDataUnsafe.user.id
+                        });
+
+                        if (!invoiceLink) throw new Error('Не удалось получить ссылку на оплату.');
+
+                        App.tg.openInvoice(invoiceLink, async (status) => {
+                            if (status === 'paid') {
+                                App.tg.HapticFeedback.notificationOccurred('success');
+                                App.ui.showPopup({ title: 'Успешно!', message: 'Подписка активирована.' });
+                                await this.activateSubscription();
+                            } else {
+                                App.tg.HapticFeedback.notificationOccurred('error');
+                                App.ui.showPopup({ title: 'Ошибка', message: `Оплата не удалась. Статус: ${status}` });
+                            }
+                        });
+
+                    } catch (error) {
+                        console.error('Payment initiation error:', error);
+                        App.ui.showPopup({ title: 'Ошибка', message: `Не удалось начать процесс оплаты: ${error.message}` });
+                    }
                 },
                 async activateSubscription(days = 30) {
-                    const now = new Date();
-                    App.state.subscription.isActive = true;
-                    App.state.subscription.endDate = new Date(now.setDate(now.getDate() + days)).toISOString();
-                    
-                    if (App.state.referrerId) {
-                        const { error } = await App.supabase.functions.invoke('award-subscription-bonus', {
-                            body: { referrerId: App.state.referrerId }
-                        });
-                        if (error) console.error('Error awarding subscription bonus:', error);
-                        else console.log('Successfully awarded subscription bonus via Edge Function.');
-                    }
-
-                    await App.stateManager.save();
+                    await App.api.invokeFunction('handle-actions', {
+                        action: 'activate_subscription',
+                        userId: App.tg.initDataUnsafe.user.id,
+                        days: days
+                    });
+                    // Обновляем состояние с сервера, чтобы получить актуальные данные
+                    await App.stateManager.load();
                     App.ui.renderSubscriptionStatus(); 
                 }
             },
@@ -945,6 +803,11 @@
             },
 
             api: {
+                async invokeFunction(name, body) {
+                    const { data, error } = await App.supabase.functions.invoke(name, { body: body });
+                    if (error) throw error;
+                    return data;
+                },
                 createCodeGenerationPrompt(userPrompt, existingCode) {
                     const baseInstruction = `Твоя задача - быть экспертом по созданию веб-страниц. Ты должен вернуть ТОЛЬКО HTML-код в одном блоке \`\`\`html ... \`\`\`. Без лишних слов, объяснений или комментариев вне кода. Код должен быть полным и самодостаточным (включая HTML, CSS в <style> и JS в <script>). Используй Tailwind CSS для стилизации.`;
                     return existingCode
