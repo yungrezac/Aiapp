@@ -331,6 +331,7 @@
                             id: user.id,
                             username: user.username,
                             full_name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+                            photo_url: user.photo_url, // ИСПРАВЛЕНО: Сохраняем фото
                             updated_at: new Date().toISOString(),
                             bonus_generations: App.tg.initDataUnsafe.start_param ? 1 : 0,
                             has_seen_welcome_popup: false
@@ -946,7 +947,7 @@
                     return data;
                 },
                 createCodeGenerationPrompt(userPrompt, existingCode) {
-                    const baseInstruction = `Твоя задача - быть экспертом по созданию веб-страниц. Ты должен вернуть ТОЛЬКО HTML-код в одном блоке \`\`\`html ... \`\`\`. Без лишних слов, объяснений или комментариев вне кода. Код должен быть полным и самодостаточным (включая HTML, CSS в <style> и JS в <script>). Используй Tailwind CSS для стилизации.`;
+                    const baseInstruction = `Твоя задача - быть экспертом по созданию веб приложений. Ты должен вернуть ТОЛЬКО HTML-код в одном блоке \`\`\`html ... \`\`\`. Без лишних слов, объяснений или комментариев вне кода. Код должен быть полным и самодостаточным (включая HTML, CSS в <style> и JS в <script>). Используй Tailwind CSS для стилизации.`;
                     return existingCode
                         ? `${baseInstruction}\nВот существующий код:\n\n${existingCode}\n\nЗапрос пользователя: "${userPrompt}".\nИзмени код и верни новую полную версию.`
                         : `${baseInstruction}\nЗапрос пользователя: "${userPrompt}".\nСоздай код с нуля.`;
