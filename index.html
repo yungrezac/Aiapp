@@ -197,11 +197,10 @@
              * =============================================================
              */
             stateManager: {
-                parent: this,
                 load() {
-                    const savedState = localStorage.getItem(this.parent.config.storageKey);
+                    const savedState = localStorage.getItem(App.config.storageKey);
                     if (savedState) {
-                        Object.assign(this.parent.state, JSON.parse(savedState));
+                        Object.assign(App.state, JSON.parse(savedState));
                     } else {
                         this.setDefaultState();
                     }
@@ -209,30 +208,30 @@
                     this.save();
                 },
                 save() {
-                    localStorage.setItem(this.parent.config.storageKey, JSON.stringify(this.parent.state));
+                    localStorage.setItem(App.config.storageKey, JSON.stringify(App.state));
                 },
                 setDefaultState() {
                     const initialChatId = `chat-${Date.now()}`;
-                    this.parent.state.activeChatId = initialChatId;
-                    this.parent.state.chats = [{ 
+                    App.state.activeChatId = initialChatId;
+                    App.state.chats = [{ 
                         id: initialChatId, 
                         title: 'Новый чат', 
                         createdAt: new Date().toISOString(), 
-                        messages: [{ sender: 'ai', text: 'Привет! 👋 Опиши, какое веб-приложение ты хочешь создать.' }], 
+                        messages: [{ sender: 'ai', text: 'Привет! � Опиши, какое веб-приложение ты хочешь создать.' }], 
                         generatedCode: '' 
                     }];
                 },
                 checkDateBasedState() {
                     const todayStart = new Date().setHours(0, 0, 0, 0);
-                    if (this.parent.state.dailyGenerations.lastReset < todayStart) {
-                        this.parent.state.dailyGenerations = { count: 0, lastReset: todayStart };
+                    if (App.state.dailyGenerations.lastReset < todayStart) {
+                        App.state.dailyGenerations = { count: 0, lastReset: todayStart };
                     }
-                    if (this.parent.state.subscription.isActive && new Date(this.parent.state.subscription.endDate) < new Date()) {
-                        this.parent.state.subscription = { isActive: false, endDate: null };
+                    if (App.state.subscription.isActive && new Date(App.state.subscription.endDate) < new Date()) {
+                        App.state.subscription = { isActive: false, endDate: null };
                     }
                 },
                 getActiveChat() {
-                    return this.parent.state.chats.find(chat => chat.id === this.parent.state.activeChatId);
+                    return App.state.chats.find(chat => chat.id === App.state.activeChatId);
                 }
             },
 
@@ -242,29 +241,28 @@
              * =============================================================
              */
             ui: {
-                parent: this,
                 renderAll() {
                     this.renderActiveChat();
                     this.renderProfilePage();
                 },
                 renderActiveChat() {
-                    const chat = this.parent.stateManager.getActiveChat();
+                    const chat = App.stateManager.getActiveChat();
                     if (!chat) return;
                     
-                    this.parent.elements.chatHistory.innerHTML = '';
+                    App.elements.chatHistory.innerHTML = '';
                     chat.messages.forEach(msg => this.addMessageToChat(msg.text, msg.sender));
                     
-                    this.parent.elements.codeOutput.textContent = chat.generatedCode || "// Код появится здесь после генерации";
-                    this.parent.elements.previewIframe.srcdoc = chat.generatedCode;
+                    App.elements.codeOutput.textContent = chat.generatedCode || "// Код появится здесь после генерации";
+                    App.elements.previewIframe.srcdoc = chat.generatedCode;
                 },
                 renderProfilePage() {
                     this.renderSubscriptionStatus();
                     this.renderChatList();
                 },
                 renderSubscriptionStatus() {
-                    const { subscription, dailyGenerations } = this.parent.state;
-                    const { maxFreeGenerations } = this.parent.config;
-                    const el = this.parent.elements.subscriptionStatus;
+                    const { subscription, dailyGenerations } = App.state;
+                    const { maxFreeGenerations } = App.config;
+                    const el = App.elements.subscriptionStatus;
 
                     if (subscription.isActive) {
                         el.innerHTML = `
@@ -276,12 +274,12 @@
                             <p class="text-sm">Бесплатных генераций сегодня:</p>
                             <p class="text-2xl font-bold">${maxFreeGenerations - dailyGenerations.count} / ${maxFreeGenerations}</p>
                             <button id="subscribe-button" class="w-full mt-4 bg-yellow-400 text-black font-bold py-2 px-4 rounded-lg btn-transition">Подписаться за 999 Stars</button>`;
-                        document.getElementById('subscribe-button').addEventListener('click', () => this.parent.paymentManager.initiateSubscription());
+                        document.getElementById('subscribe-button').addEventListener('click', () => App.paymentManager.initiateSubscription());
                     }
                 },
                 renderChatList() {
-                    const { chats, activeChatId } = this.parent.state;
-                    const el = this.parent.elements.chatList;
+                    const { chats, activeChatId } = App.state;
+                    const el = App.elements.chatList;
                     el.innerHTML = '';
                     
                     chats.slice().reverse().forEach(chat => {
@@ -290,8 +288,8 @@
                         chatItem.className = `p-3 rounded-lg cursor-pointer ${isActive ? 'bg-[var(--tg-button)] text-[var(--tg-button-text)]' : 'bg-[var(--tg-secondary-bg)]'}`;
                         chatItem.innerHTML = `<h4 class="font-semibold truncate">${chat.title}</h4><p class="text-xs opacity-70">${new Date(chat.createdAt).toLocaleString()}</p>`;
                         chatItem.addEventListener('click', () => {
-                            this.parent.state.activeChatId = chat.id;
-                            this.parent.stateManager.save();
+                            App.state.activeChatId = chat.id;
+                            App.stateManager.save();
                             this.renderAll();
                             this.navigateToPage('chat-page');
                         });
@@ -311,27 +309,27 @@
                         messageDiv.appendChild(textNode);
                     }
                     
-                    this.parent.elements.chatHistory.appendChild(messageDiv);
-                    this.parent.elements.chatHistory.scrollTop = this.parent.elements.chatHistory.scrollHeight;
+                    App.elements.chatHistory.appendChild(messageDiv);
+                    App.elements.chatHistory.scrollTop = App.elements.chatHistory.scrollHeight;
                     return messageDiv;
                 },
                 navigateToPage(pageId) {
-                    this.parent.elements.pages.forEach(p => p.classList.toggle('active', p.id === pageId));
-                    this.parent.elements.navButtons.forEach(b => b.classList.toggle('active', b.dataset.page === pageId));
+                    App.elements.pages.forEach(p => p.classList.toggle('active', p.id === pageId));
+                    App.elements.navButtons.forEach(b => b.classList.toggle('active', b.dataset.page === pageId));
                 },
                 toggleCodePreview(view) {
-                    this.parent.elements.subNavButtons.forEach(b => b.classList.toggle('active', b.dataset.view === view));
-                    this.parent.elements.codeView.classList.toggle('hidden', view !== 'code');
-                    this.parent.elements.previewView.classList.toggle('hidden', view !== 'preview');
+                    App.elements.subNavButtons.forEach(b => b.classList.toggle('active', b.dataset.view === view));
+                    App.elements.codeView.classList.toggle('hidden', view !== 'code');
+                    App.elements.previewView.classList.toggle('hidden', view !== 'preview');
                 },
                 toggleGenerationButton(disabled) {
-                    this.parent.state.isGenerating = disabled;
-                    this.parent.elements.generateButton.disabled = disabled;
-                    this.parent.elements.generateButton.style.opacity = disabled ? '0.7' : '1';
-                    this.parent.elements.generateButton.style.cursor = disabled ? 'not-allowed' : 'pointer';
+                    App.state.isGenerating = disabled;
+                    App.elements.generateButton.disabled = disabled;
+                    App.elements.generateButton.style.opacity = disabled ? '0.7' : '1';
+                    App.elements.generateButton.style.cursor = disabled ? 'not-allowed' : 'pointer';
                 },
                 showPopup(options) {
-                    this.parent.tg.showPopup(options);
+                    App.tg.showPopup(options);
                 }
             },
 
@@ -341,18 +339,17 @@
              * =============================================================
              */
             eventManager: {
-                parent: this,
                 addEventListeners() {
                     // Навигация
-                    this.parent.elements.navButtons.forEach(button => button.addEventListener('click', () => this.parent.ui.navigateToPage(button.dataset.page)));
-                    this.parent.elements.subNavButtons.forEach(button => button.addEventListener('click', () => this.parent.ui.toggleCodePreview(button.dataset.view)));
+                    App.elements.navButtons.forEach(button => button.addEventListener('click', () => App.ui.navigateToPage(button.dataset.page)));
+                    App.elements.subNavButtons.forEach(button => button.addEventListener('click', () => App.ui.toggleCodePreview(button.dataset.view)));
 
                     // Основные действия
-                    this.parent.elements.generateButton.addEventListener('click', () => this.parent.generationManager.handleGeneration());
-                    this.parent.elements.promptInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') this.parent.generationManager.handleGeneration(); });
-                    this.parent.elements.newChatButton.addEventListener('click', () => this.parent.chatManager.createNewChat());
-                    this.parent.elements.copyButton.addEventListener('click', () => this.parent.chatManager.copyCode());
-                    this.parent.elements.explainButton.addEventListener('click', () => this.parent.generationManager.explainCode());
+                    App.elements.generateButton.addEventListener('click', () => App.generationManager.handleGeneration());
+                    App.elements.promptInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') App.generationManager.handleGeneration(); });
+                    App.elements.newChatButton.addEventListener('click', () => App.chatManager.createNewChat());
+                    App.elements.copyButton.addEventListener('click', () => App.chatManager.copyCode());
+                    App.elements.explainButton.addEventListener('click', () => App.generationManager.explainCode());
                 }
             },
 
@@ -362,23 +359,22 @@
              * =============================================================
              */
             chatManager: {
-                parent: this,
                 createNewChat() {
                     const newId = `chat-${Date.now()}`;
-                    this.parent.state.chats.push({ 
+                    App.state.chats.push({ 
                         id: newId, 
                         title: 'Новый чат', 
                         createdAt: new Date().toISOString(), 
                         messages: [{ sender: 'ai', text: 'Новый чат создан. Что будем делать?' }], 
                         generatedCode: '' 
                     });
-                    this.parent.state.activeChatId = newId;
-                    this.parent.stateManager.save();
-                    this.parent.ui.renderAll();
-                    this.parent.ui.navigateToPage('chat-page');
+                    App.state.activeChatId = newId;
+                    App.stateManager.save();
+                    App.ui.renderAll();
+                    App.ui.navigateToPage('chat-page');
                 },
                 copyCode() {
-                    const code = this.parent.stateManager.getActiveChat().generatedCode;
+                    const code = App.stateManager.getActiveChat().generatedCode;
                     if (!code) return;
 
                     // Используем document.execCommand для лучшей совместимости в iframe
@@ -388,13 +384,13 @@
                     textarea.select();
                     try {
                         document.execCommand('copy');
-                        this.parent.tg.HapticFeedback.notificationOccurred('success');
-                        const originalText = this.parent.elements.copyButton.textContent;
-                        this.parent.elements.copyButton.textContent = 'Скопировано!';
-                        setTimeout(() => { this.parent.elements.copyButton.textContent = originalText; }, 2000);
+                        App.tg.HapticFeedback.notificationOccurred('success');
+                        const originalText = App.elements.copyButton.textContent;
+                        App.elements.copyButton.textContent = 'Скопировано!';
+                        setTimeout(() => { App.elements.copyButton.textContent = originalText; }, 2000);
                     } catch (err) {
-                        this.parent.tg.HapticFeedback.notificationOccurred('error');
-                        this.parent.ui.showPopup({ title: 'Ошибка', message: 'Не удалось скопировать код.' });
+                        App.tg.HapticFeedback.notificationOccurred('error');
+                        App.ui.showPopup({ title: 'Ошибка', message: 'Не удалось скопировать код.' });
                     }
                     document.body.removeChild(textarea);
                 }
@@ -406,21 +402,20 @@
              * =============================================================
              */
             paymentManager: {
-                parent: this,
                 initiateSubscription() {
-                    const payload = `monthly_sub_user_${this.parent.tg.initDataUnsafe.user?.id}_${Date.now()}`;
+                    const payload = `monthly_sub_user_${App.tg.initDataUnsafe.user?.id}_${Date.now()}`;
                     
-                    this.parent.tg.showInvoice(payload, (status) => {
+                    App.tg.showInvoice(payload, (status) => {
                          // ВАЖНО: В реальном приложении здесь НЕОБХОДИМО отправить `payload` или другой идентификатор на ваш сервер.
                          // Ваш сервер должен получить webhook от Telegram (или вашего платежного провайдера),
                          // убедиться, что платеж действительно прошел, и только после этого активировать подписку в базе данных.
                          // Клиентская сторона не должна сама активировать подписку. Это небезопасно.
                         if (status === 'paid') {
-                            this.parent.tg.HapticFeedback.notificationOccurred('success');
+                            App.tg.HapticFeedback.notificationOccurred('success');
                             this.activateSubscription();
                         } else if (status === 'failed' || status === 'cancelled') {
-                            this.parent.tg.HapticFeedback.notificationOccurred('error');
-                            this.parent.ui.showPopup({ title: 'Ошибка', message: 'Платеж не удался. Пожалуйста, попробуйте снова.' });
+                            App.tg.HapticFeedback.notificationOccurred('error');
+                            App.ui.showPopup({ title: 'Ошибка', message: 'Платеж не удался. Пожалуйста, попробуйте снова.' });
                         }
                     });
                 },
@@ -428,10 +423,10 @@
                 // Этот метод должен вызываться только после подтверждения с сервера.
                 activateSubscription() {
                     const now = new Date();
-                    this.parent.state.subscription.isActive = true;
-                    this.parent.state.subscription.endDate = new Date(now.setDate(now.getDate() + 30)).toISOString();
-                    this.parent.stateManager.save();
-                    this.parent.ui.renderSubscriptionStatus(); 
+                    App.state.subscription.isActive = true;
+                    App.state.subscription.endDate = new Date(now.setDate(now.getDate() + 30)).toISOString();
+                    App.stateManager.save();
+                    App.ui.renderSubscriptionStatus(); 
                 }
             },
 
@@ -441,41 +436,40 @@
              * =============================================================
              */
             generationManager: {
-                parent: this,
                 async handleGeneration() {
-                    if (this.parent.state.isGenerating) return;
+                    if (App.state.isGenerating) return;
 
-                    if (!this.parent.state.subscription.isActive && this.parent.state.dailyGenerations.count >= this.parent.config.maxFreeGenerations) {
-                        this.parent.ui.showPopup({
+                    if (!App.state.subscription.isActive && App.state.dailyGenerations.count >= App.config.maxFreeGenerations) {
+                        App.ui.showPopup({
                             title: 'Лимит исчерпан',
                             message: 'Вы использовали все бесплатные генерации на сегодня. Оформите PRO подписку для неограниченного доступа!',
                             buttons: [{ id: 'subscribe', type: 'default', text: 'Подписаться' }, { type: 'cancel' }]
                         }, (buttonId) => {
                             if (buttonId === 'subscribe') {
-                                this.parent.ui.navigateToPage('profile-page');
-                                this.parent.paymentManager.initiateSubscription();
+                                App.ui.navigateToPage('profile-page');
+                                App.paymentManager.initiateSubscription();
                             }
                         });
                         return;
                     }
 
-                    const prompt = this.parent.elements.promptInput.value.trim();
+                    const prompt = App.elements.promptInput.value.trim();
                     if (!prompt) return;
 
-                    this.parent.ui.toggleGenerationButton(true);
+                    App.ui.toggleGenerationButton(true);
 
-                    const chat = this.parent.stateManager.getActiveChat();
+                    const chat = App.stateManager.getActiveChat();
                     chat.messages.push({ sender: 'user', text: prompt });
                     if (chat.title === 'Новый чат') chat.title = prompt.substring(0, 30) + (prompt.length > 30 ? '...' : '');
                     
-                    this.parent.ui.addMessageToChat(prompt, 'user');
-                    this.parent.elements.promptInput.value = '';
+                    App.ui.addMessageToChat(prompt, 'user');
+                    App.elements.promptInput.value = '';
                     
-                    const indicator = this.parent.ui.addMessageToChat('Думаю...', 'ai', true);
+                    const indicator = App.ui.addMessageToChat('Думаю...', 'ai', true);
 
                     try {
-                        const systemPrompt = this.parent.api.createCodeGenerationPrompt(prompt, chat.generatedCode);
-                        const newCode = await this.parent.api.callGemini(systemPrompt);
+                        const systemPrompt = App.api.createCodeGenerationPrompt(prompt, chat.generatedCode);
+                        const newCode = await App.api.callGemini(systemPrompt);
                         
                         // Извлекаем только блок кода, если модель вернула markdown
                         const codeMatch = newCode.match(/```html\n([\s\S]*?)\n```/);
@@ -484,37 +478,37 @@
                         chat.generatedCode = finalCode;
                         chat.messages.push({ sender: 'ai', text: 'Готово! Код обновлен. Вы можете посмотреть результат на вкладке "Создание".' });
 
-                        if (!this.parent.state.subscription.isActive) {
-                            this.parent.state.dailyGenerations.count++;
+                        if (!App.state.subscription.isActive) {
+                            App.state.dailyGenerations.count++;
                         }
                         
-                        this.parent.tg.HapticFeedback.notificationOccurred('success');
+                        App.tg.HapticFeedback.notificationOccurred('success');
 
                     } catch (error) {
                         console.error('Generation Error:', error);
                         chat.messages.push({ sender: 'ai', text: `Произошла ошибка: ${error.message}. Попробуйте еще раз.` });
-                        this.parent.tg.HapticFeedback.notificationOccurred('error');
+                        App.tg.HapticFeedback.notificationOccurred('error');
                     } finally {
                         indicator.remove();
-                        this.parent.stateManager.save();
-                        this.parent.ui.renderAll();
-                        this.parent.ui.toggleGenerationButton(false);
+                        App.stateManager.save();
+                        App.ui.renderAll();
+                        App.ui.toggleGenerationButton(false);
                     }
                 },
                 async explainCode() {
-                    const code = this.parent.stateManager.getActiveChat().generatedCode;
+                    const code = App.stateManager.getActiveChat().generatedCode;
                     if (!code) {
-                         this.parent.ui.showPopup({ title: 'Нет кода', message: 'Сначала сгенерируйте код, чтобы я мог его объяснить.' });
+                         App.ui.showPopup({ title: 'Нет кода', message: 'Сначала сгенерируйте код, чтобы я мог его объяснить.' });
                          return;
                     }
 
-                    this.parent.ui.showPopup({ title: 'Объяснение кода', message: 'Запрашиваю объяснение у ИИ...' });
+                    App.ui.showPopup({ title: 'Объяснение кода', message: 'Запрашиваю объяснение у ИИ...' });
                     try {
-                        const systemPrompt = this.parent.api.createExplanationPrompt(code);
-                        const explanation = await this.parent.api.callGemini(systemPrompt);
-                        this.parent.ui.showPopup({ title: 'Объяснение кода', message: explanation, buttons: [{ type: 'ok' }] });
+                        const systemPrompt = App.api.createExplanationPrompt(code);
+                        const explanation = await App.api.callGemini(systemPrompt);
+                        App.ui.showPopup({ title: 'Объяснение кода', message: explanation, buttons: [{ type: 'ok' }] });
                     } catch (error) {
-                        this.parent.ui.showPopup({ title: 'Ошибка', message: `Не удалось получить объяснение: ${error.message}`, buttons: [{ type: 'ok' }] });
+                        App.ui.showPopup({ title: 'Ошибка', message: `Не удалось получить объяснение: ${error.message}`, buttons: [{ type: 'ok' }] });
                     }
                 }
             },
@@ -525,7 +519,6 @@
              * =============================================================
              */
             api: {
-                parent: this,
                 createCodeGenerationPrompt(userPrompt, existingCode) {
                     const baseInstruction = `Твоя задача - быть экспертом по созданию веб-страниц. Ты должен вернуть ТОЛЬКО HTML-код в одном блоке \`\`\`html ... \`\`\`.
 Без лишних слов, объяснений или комментариев вне кода. Код должен быть полным и самодостаточным (включая HTML, CSS в <style> и JS в <script>). Используй Tailwind CSS для стилизации.`;
@@ -538,7 +531,7 @@
                     return `Объясни следующий HTML-код пошагово, простым и понятным русским языком для новичка. Опиши структуру (HTML), стили (CSS) и логику (JavaScript). Вот код:\n\n${code}`;
                 },
                 async callGemini(prompt, retries = 3, delay = 1000) {
-                    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${this.parent.config.apiKey}`;
+                    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${App.config.apiKey}`;
                     const payload = { contents: [{ parts: [{ text: prompt }] }] };
 
                     try {
