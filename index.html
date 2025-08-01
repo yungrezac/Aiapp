@@ -795,11 +795,36 @@
             },
 
             paymentManager: {
-                initiateSubscription() {
-                    App.ui.showPopup({
-                        title: 'Недоступно',
-                        message: 'Скоро будет доступно в вашем регионе'
-                    });
+                async initiateSubscription() {
+                    try {
+                        const userId = App.state.userProfile.id;
+                        // Вызываем серверную функцию для создания счета
+                        const { data, error } = await App.api.invokeFunction('handle-actions', {
+                            action: 'create_invoice',
+                            userId: userId
+                        });
+
+                        if (error) throw error;
+                        if (!data.invoiceLink) throw new Error('Не удалось получить ссылку на оплату.');
+
+                        // Открываем окно оплаты Telegram
+                        App.tg.openInvoice(data.invoiceLink, async (status) => {
+                            if (status === 'paid') {
+                                App.tg.HapticFeedback.notificationOccurred('success');
+                                App.ui.showPopup({ title: 'Успешно!', message: 'Подписка активирована.' });
+                                // Обновляем данные пользователя, чтобы сразу увидеть изменения
+                                await App.dataManager.loadInitialDataAndChats();
+                                App.ui.renderSubscriptionStatus();
+                            } else {
+                                App.tg.HapticFeedback.notificationOccurred('error');
+                                App.ui.showPopup({ title: 'Ошибка', message: `Оплата не удалась. Статус: ${status}` });
+                            }
+                        });
+
+                    } catch (error) {
+                        console.error('Payment initiation error:', error);
+                        App.ui.showPopup({ title: 'Ошибка', message: `Не удалось начать процесс оплаты: ${error.message}` });
+                    }
                 }
             },
 
@@ -954,7 +979,7 @@
                         : `${baseInstruction}\nЗапрос пользователя: "${userPrompt}".\nСоздай код с нуля.`;
                 },
                 async callGemini(prompt, retries = 3, delay = 1000) {
-                    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${App.config.apiKey}`;
+                    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${App.config.apiKey}`;
                     const payload = { contents: [{ parts: [{ text: prompt }] }] };
 
                     try {
