@@ -158,6 +158,7 @@
                     <input id="referral-link-input" type="text" readonly class="w-full p-2 rounded-lg focus:outline-none bg-[var(--tg-bg)] text-sm">
                     <button id="copy-referral-link-button" class="p-2 rounded-lg bg-[var(--tg-button)] text-[var(--tg-button-text)] btn-transition flex-shrink-0"><svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg></button>
                 </div>
+                <button id="invite-friend-button" class="w-full mt-2 bg-[var(--tg-button)] text-[var(--tg-button-text)] font-bold py-2 px-4 rounded-lg btn-transition">Пригласить</button>
             </div>
             <div id="referral-list-section" class="bg-[var(--tg-secondary-bg)] p-4 rounded-xl space-y-3">
                 <div class="flex items-center justify-between">
@@ -254,7 +255,7 @@
                     'inspector-code-output', 'inspector-preview-iframe', 'inspector-loader',
                     'url-input-view', 'direct-input-view', 'direct-code-input', 'render-direct-code-button',
                     'user-profile-card', 'user-avatar', 'user-fullname', 'user-username',
-                    'copy-referral-link-button', 'referral-link-input',
+                    'copy-referral-link-button', 'referral-link-input', 'invite-friend-button',
                     'referral-list-section', 'referral-list', 'referral-count',
                     'global-loader', 'loader-message'
                 ];
@@ -640,6 +641,7 @@
                     App.elements.subNavButtonsInspector.forEach(button => button.addEventListener('click', () => App.ui.toggleInspectorView(button.dataset.view)));
                     
                     App.elements.copyReferralLinkButton.addEventListener('click', () => App.referralManager.copyReferralLink());
+                    App.elements.inviteFriendButton.addEventListener('click', () => App.referralManager.shareReferralLink());
                 }
             },
 
@@ -678,11 +680,9 @@
                     const referrerId = App.tg.initDataUnsafe.start_param;
                     const currentUser = App.state.userProfile;
 
-                    // Проверяем, что пользователь пришел по ссылке, у него еще нет реферера, и он не сам себе реферер
                     if (referrerId && !currentUser.referrer_id && currentUser.id.toString() !== referrerId) {
                         console.log(`New user ${currentUser.id} referred by ${referrerId}`);
                         try {
-                            // 1. Награждаем реферера
                             const { data: referrerProfile, error: referrerError } = await App.supabase
                               .from('profiles')
                               .select('bonus_generations')
@@ -698,7 +698,6 @@
 
                             if (updateReferrerError) throw new Error(`Could not update referrer bonus: ${updateReferrerError.message}`);
 
-                            // 2. Обновляем профиль нового пользователя, указывая, кто его пригласил
                             const { error: updateNewUserError } = await App.supabase
                               .from('profiles')
                               .update({ referrer_id: referrerId })
@@ -706,14 +705,12 @@
 
                             if (updateNewUserError) throw new Error(`Could not update new user's referrer: ${updateNewUserError.message}`);
 
-                            // 3. Записываем факт реферальной связи в отдельную таблицу
                             const { error: insertReferralError } = await App.supabase
                               .from('referrals')
                               .insert({ referrer_id: referrerId, referred_id: currentUser.id });
 
                             if (insertReferralError) throw new Error(`Could not log referral connection: ${insertReferralError.message}`);
                             
-                            // Обновляем локальное состояние и показываем сообщение
                             App.state.userProfile.referrer_id = referrerId;
                             App.ui.showPopup({ title: 'Бонус!', message: 'Вы перешли по приглашению и получили 1 бонусную генерацию! Ваш друг также получил бонус.' });
 
@@ -743,6 +740,16 @@
                         App.ui.showPopup({ title: 'Ошибка', message: 'Не удалось скопировать ссылку.' });
                     }
                     document.body.removeChild(textarea);
+                },
+                shareReferralLink() {
+                    const link = App.elements.referralLinkInput.value;
+                    if (!link) {
+                        App.ui.showPopup({ title: 'Ошибка', message: 'Не удалось получить реферальную ссылку.' });
+                        return;
+                    }
+                    const text = `Привет получи 1 генерацию веб приложения от меня в YR://DEV`;
+                    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`;
+                    App.tg.openTelegramLink(shareUrl);
                 }
             },
 
