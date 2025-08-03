@@ -102,12 +102,8 @@
                 <button data-view="preview" class="sub-nav-button w-1/2 p-4 text-center text-[var(--tg-hint)]">Превью</button>
             </div>
             <div id="code-view" class="flex-grow flex flex-col overflow-hidden">
-                <!-- ИЗМЕНЕНИЕ: Добавлена кнопка "Опубликовать" -->
+                <!-- ИЗМЕНЕНИЕ: Кнопка "Опубликовать" удалена -->
                 <div class="p-2 flex-shrink-0 flex justify-end items-center space-x-2 bg-[var(--tg-bg)] border-b border-[var(--tg-secondary-bg)]">
-                    <button id="creation-deploy-button" class="bg-transparent border border-[var(--tg-button)] text-[var(--tg-button)] px-4 py-2 rounded-lg text-sm btn-transition flex items-center space-x-2">
-                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l-3.75 3.75M12 9.75l3.75 3.75m-7.5 4.5a9 9 0 1115 0 4.5 4.5 0 01-4.5 4.5h-6a4.5 4.5 0 01-4.5-4.5z" /></svg>
-                        <span>Опубликовать</span>
-                    </button>
                     <button id="copy-button" class="bg-[var(--tg-button)] text-[var(--tg-button-text)] px-4 py-2 rounded-lg text-sm btn-transition">Копировать</button>
                 </div>
                 <div class="flex-grow overflow-auto bg-[#2d2d2d]"><pre><code id="code-output" class="language-html text-sm p-4 block whitespace-pre-wrap font-mono"></code></pre></div>
@@ -118,17 +114,7 @@
             </div>
         </div>
 
-        <!-- СТРАНИЦА 3: СПИСОК ДЕПЛОЕВ -->
-        <div id="deploy-page" class="page flex-col h-full">
-             <div class="flex-shrink-0 p-3 border-b border-[var(--tg-secondary-bg)] bg-[var(--tg-bg)]">
-                <h2 class="text-xl font-bold text-center">Мои деплои</h2>
-            </div>
-            <div id="deployments-list" class="flex-grow overflow-y-auto p-4 space-y-3">
-                <!-- Список будет рендериться здесь -->
-            </div>
-        </div>
-
-        <!-- СТРАНИЦА 4: ПРОФИЛЬ -->
+        <!-- СТРАНИЦА 3: ПРОФИЛЬ -->
         <div id="profile-page" class="page p-4 overflow-y-auto flex-col h-full space-y-4">
             <div id="user-profile-card" class="flex items-center space-x-4 p-4 bg-[var(--tg-secondary-bg)] rounded-xl">
                 <img id="user-avatar" src="https://placehold.co/80x80/EFEFEF/333333?text=User" class="w-20 h-20 rounded-full object-cover bg-gray-300">
@@ -163,7 +149,6 @@
     <footer class="flex-shrink-0 h-20 bg-[var(--tg-bg)] border-t border-[var(--tg-secondary-bg)] flex justify-around items-center">
         <button data-page="chat-page" class="nav-button active flex flex-col items-center justify-center p-2 h-full" aria-label="Чат"><svg class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg><span class="text-xs">Чат</span></button>
         <button data-page="creation-page" class="nav-button flex flex-col items-center justify-center p-2 h-full" aria-label="Создание"><svg class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg><span class="text-xs">Создание</span></button>
-        <button data-page="deploy-page" class="nav-button flex flex-col items-center justify-center p-2 h-full" aria-label="Деплой"><svg class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l-3.75 3.75M12 9.75l3.75 3.75m-7.5 4.5a9 9 0 1115 0 4.5 4.5 0 01-4.5 4.5h-6a4.5 4.5 0 01-4.5-4.5z" /></svg><span class="text-xs">Деплой</span></button>
         <button data-page="profile-page" class="nav-button flex flex-col items-center justify-center p-2 h-full" aria-label="Профиль"><svg class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg><span class="text-xs">Профиль</span></button>
     </footer>
 
@@ -201,7 +186,7 @@
                 activeChat: null,
                 myReferrals: [],
                 isGenerating: false,
-                isDeploying: false,
+                // isDeploying state removed
             },
             elements: {},
             tg: window.Telegram.WebApp,
@@ -240,12 +225,12 @@
 
             cacheDOMElements() {
                 const ids = [
-                    'chat-page', 'creation-page', 'deploy-page', 'profile-page', 'chat-history', 'prompt-input', 
+                    'chat-page', 'creation-page', 'profile-page', 'chat-history', 'prompt-input', 
                     'generate-button', 'code-view', 'preview-view', 'code-output', 'preview-iframe', 
-                    'copy-button', 'creation-deploy-button', 'subscription-status', 'chat-list', 'chat-title',
+                    'copy-button', 'subscription-status', 'chat-list', 'chat-title',
                     'history-button', 'page-new-chat-button', 'refresh-preview-button',
                     'history-modal-overlay', 'history-modal-panel',
-                    'deployments-list',
+                    // 'deploy-page', 'deployments-list', 'creation-deploy-button' removed
                     'user-profile-card', 'user-avatar', 'user-fullname', 'user-username',
                     'copy-referral-link-button', 'referral-link-input', 'invite-friend-button',
                     'referral-list-section', 'referral-list', 'referral-count',
@@ -297,9 +282,10 @@
 
                     App.state.userProfile = profile;
 
+                    // 'deployed_url' removed from select
                     const { data: chats, error: chatsError } = await App.supabase
                         .from('chats')
-                        .select('id, title, created_at, deployed_url')
+                        .select('id, title, created_at')
                         .eq('user_id', userId)
                         .order('created_at', { ascending: false });
 
@@ -350,6 +336,7 @@
                 },
 
                 async createNewChatInDB(userId) {
+                    // 'deployed_url' removed from insert and select
                     const { data, error } = await App.supabase
                         .from('chats')
                         .insert({
@@ -357,9 +344,8 @@
                             title: 'Новый чат',
                             messages: [{ sender: 'ai', text: 'Привет! 👋 Опиши, какое веб-приложение ты хочешь создать.' }],
                             generated_code: '',
-                            deployed_url: null
                         })
-                        .select('id, title, created_at, deployed_url')
+                        .select('id, title, created_at')
                         .single();
                     
                     if (error) {
@@ -371,10 +357,11 @@
                 
                 async saveActiveChat() {
                     if (!App.state.activeChat) return;
-                    const { id, title, messages, generated_code, deployed_url } = App.state.activeChat;
+                    // 'deployed_url' removed from destructuring and update
+                    const { id, title, messages, generated_code } = App.state.activeChat;
                     const { error } = await App.supabase
                         .from('chats')
-                        .update({ title, messages, generated_code, deployed_url })
+                        .update({ title, messages, generated_code })
                         .eq('id', id);
                     
                     if (error) console.error('Failed to save chat:', error);
@@ -539,54 +526,7 @@
                         el.appendChild(chatItem);
                     });
                 },
-                async renderDeploymentsList() {
-                    const listEl = App.elements.deploymentsList;
-                    listEl.innerHTML = `<div class="flex justify-center items-center h-full"><div class="loader"></div></div>`;
-
-                    try {
-                        const { data: deployedChats, error } = await App.supabase
-                            .from('chats')
-                            .select('id, title, deployed_url')
-                            .eq('user_id', App.state.userProfile.id)
-                            .not('deployed_url', 'is', null)
-                            .order('created_at', { ascending: false });
-
-                        if (error) throw error;
-
-                        listEl.innerHTML = '';
-
-                        if (deployedChats.length === 0) {
-                            listEl.innerHTML = `
-                                <div class="text-center py-10">
-                                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
-                                    <h3 class="mt-2 text-sm font-medium text-[var(--tg-text)]">Нет опубликованных приложений</h3>
-                                    <p class="mt-1 text-sm text-[var(--tg-hint)]">Создайте приложение в чате и опубликуйте его.</p>
-                                </div>`;
-                            return;
-                        }
-
-                        deployedChats.forEach(chat => {
-                            const item = document.createElement('div');
-                            item.className = 'bg-[var(--tg-secondary-bg)] p-4 rounded-xl';
-                            item.innerHTML = `
-                                <h4 class="font-bold truncate">${chat.title}</h4>
-                                <input type="text" readonly class="w-full p-2 mt-2 rounded-lg focus:outline-none bg-[var(--tg-bg)] text-sm text-[var(--tg-hint)]" value="${chat.deployed_url}">
-                                <div class="flex space-x-2 mt-2">
-                                    <button data-url="${chat.deployed_url}" class="copy-deploy-url-btn w-1/2 bg-transparent border border-[var(--tg-button)] text-[var(--tg-button)] font-bold py-2 px-4 rounded-lg btn-transition">Копировать</button>
-                                    <button data-url="${chat.deployed_url}" class="open-deploy-url-btn w-1/2 bg-[var(--tg-button)] text-[var(--tg-button-text)] font-bold py-2 px-4 rounded-lg btn-transition">Открыть</button>
-                                </div>
-                            `;
-                            listEl.appendChild(item);
-                        });
-
-                        document.querySelectorAll('.copy-deploy-url-btn').forEach(btn => btn.addEventListener('click', (e) => App.deployManager.copyDeployLink(e.currentTarget.dataset.url)));
-                        document.querySelectorAll('.open-deploy-url-btn').forEach(btn => btn.addEventListener('click', (e) => App.deployManager.openDeployLink(e.currentTarget.dataset.url)));
-
-                    } catch(error) {
-                        console.error("Failed to load deployments:", error);
-                        listEl.innerHTML = `<p class="text-center text-red-500">Не удалось загрузить список деплоев.</p>`;
-                    }
-                },
+                // renderDeploymentsList function removed
                 addMessageToChat(text, sender, isTyping = false) {
                     const messageDiv = document.createElement('div');
                     messageDiv.className = `chat-bubble ${sender}-bubble flex items-center`;
@@ -609,9 +549,7 @@
                     if (pageId === 'profile-page') {
                         this.renderProfilePage();
                     }
-                    if (pageId === 'deploy-page') {
-                        this.renderDeploymentsList();
-                    }
+                    // Logic for deploy-page removed
                 },
                 toggleCodePreview(view) {
                     App.elements.subNavButtons.forEach(b => b.classList.toggle('active', b.dataset.view === view));
@@ -715,8 +653,7 @@
                         App.tg.HapticFeedback.notificationOccurred('success');
                     });
 
-                    // Deploy Button on Creation Page
-                    App.elements.creationDeployButton.addEventListener('click', () => App.deployManager.handleDeploy());
+                    // Event listener for deploy button removed
 
                     App.elements.copyReferralLinkButton.addEventListener('click', () => App.referralManager.copyReferralLink());
                     App.elements.inviteFriendButton.addEventListener('click', () => App.referralManager.shareReferralLink());
@@ -754,76 +691,7 @@
                 }
             },
             
-            deployManager: {
-                async handleDeploy() {
-                    if (App.state.isDeploying) return;
-                    
-                    const chat = App.state.activeChat;
-                    const code = chat?.generated_code;
-
-                    if (!code || !code.trim()) {
-                        App.ui.showPopup({ title: 'Ошибка', message: 'Нет кода для публикации. Сначала сгенерируйте приложение в чате.' });
-                        return;
-                    }
-
-                    const isFullApp = /<html/i.test(code) && /<body/i.test(code);
-                    if (!isFullApp) {
-                        App.ui.showPopup({ title: 'Невозможно опубликовать', message: 'Публикация доступна только для полноценных приложений. Ваш код не является полной HTML-страницей.' });
-                        return;
-                    }
-
-                    App.state.isDeploying = true;
-                    App.elements.creationDeployButton.disabled = true;
-                    App.elements.creationDeployButton.innerHTML = `<div class="loader" style="width: 16px; height: 16px;"></div><span class="ml-2">Публикация...</span>`;
-
-                    try {
-                        const { url } = await App.api.deployApp(code, chat.id);
-                        
-                        chat.deployed_url = url;
-                        const chatInList = App.state.chats.find(c => c.id === chat.id);
-                        if (chatInList) chatInList.deployed_url = url;
-                        await App.dataManager.saveActiveChat();
-
-                        App.tg.HapticFeedback.notificationOccurred('success');
-                        App.ui.showPopup({
-                            title: 'Успешно опубликовано!',
-                            message: `Ваше приложение доступно по ссылке: ${url}`,
-                            buttons: [
-                                { id: 'copy', type: 'default', text: 'Копировать' },
-                                { id: 'open', type: 'default', text: 'Открыть' },
-                                { type: 'close' }
-                            ]
-                        }, (buttonId) => {
-                            if (buttonId === 'copy') this.copyDeployLink(url);
-                            if (buttonId === 'open') this.openDeployLink(url);
-                        });
-
-                    } catch (error) {
-                        console.error('Deploy error:', error);
-                        App.ui.showPopup({ title: 'Ошибка публикации', message: error.message });
-                        App.tg.HapticFeedback.notificationOccurred('error');
-                    } finally {
-                        App.state.isDeploying = false;
-                        App.elements.creationDeployButton.disabled = false;
-                        App.elements.creationDeployButton.innerHTML = `<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l-3.75 3.75M12 9.75l3.75 3.75m-7.5 4.5a9 9 0 1115 0 4.5 4.5 0 01-4.5 4.5h-6a4.5 4.5 0 01-4.5-4.5z" /></svg><span>Опубликовать</span>`;
-                    }
-                },
-                copyDeployLink(link) {
-                    if (!link) return;
-                    navigator.clipboard.writeText(link).then(() => {
-                        App.tg.HapticFeedback.notificationOccurred('success');
-                        App.ui.showPopup({ title: 'Успешно', message: 'Ссылка скопирована!' });
-                    }, () => {
-                        App.tg.HapticFeedback.notificationOccurred('error');
-                        App.ui.showPopup({ title: 'Ошибка', message: 'Не удалось скопировать ссылку.' });
-                    });
-                },
-                openDeployLink(link) {
-                    if (link) {
-                        App.tg.openLink(link);
-                    }
-                }
-            },
+            // deployManager object removed
 
             referralManager: {
                 async processNewReferral() {
@@ -1022,18 +890,7 @@
                     if (error) throw error;
                     return data;
                 },
-                async deployApp(htmlContent, chatId) {
-                    const { data, error } = await App.supabase.functions.invoke('deploy-app', {
-                        body: {
-                            content: htmlContent,
-                            chatId: chatId,
-                            userId: App.state.userProfile.id
-                        }
-                    });
-                    if (error) throw new Error(error.message);
-                    if (!data || !data.url) throw new Error('Не удалось получить URL после деплоя.');
-                    return data;
-                },
+                // deployApp function removed
                 createCodeGenerationPrompt(userPrompt, existingCode) {
                     const baseInstruction = `Твоя задача - быть экспертом по созданию html блоков, компонентов, приложений. Ты должен вернуть ТОЛЬКО HTML-код в одном блоке \`\`\`html ... \`\`\`. Без лишних слов, объяснений или комментариев вне кода. Код должен быть полным и самодостаточным (включая HTML, CSS в <style> и JS в <script>). Используй Tailwind CSS для стилизации.`;
                     return existingCode
@@ -1041,7 +898,7 @@
                         : `${baseInstruction}\nЗапрос пользователя: "${userPrompt}".\nСоздай код с нуля.`;
                 },
                 async callGemini(prompt, retries = 3, delay = 1000) {
-                    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${App.config.apiKey}`;
+                    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${App.config.apiKey}`;
                     const payload = { contents: [{ parts: [{ text: prompt }] }] };
 
                     try {
