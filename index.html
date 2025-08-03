@@ -1,4 +1,4 @@
-         <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -65,10 +65,10 @@
         .shake-it { animation: shake 0.3s ease-in-out; }
         pre[class*="language-"] { background: #2d2d2d; margin: 0; border-radius: 0; }
         code[class*="language-"] { font-size: 14px; line-height: 1.5; }
-        #history-modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.5); opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0.3s; z-index: 40; }
-        #history-modal-overlay.active { opacity: 1; visibility: visible; }
-        #history-modal-panel { position: fixed; left: 0; right: 0; bottom: 0; height: 75vh; background-color: var(--tg-bg); border-top-left-radius: 1.5rem; border-top-right-radius: 1.5rem; transform: translateY(100%); transition: transform 0.3s ease-in-out; z-index: 50; display: flex; flex-direction: column; padding: 1rem; box-shadow: 0 -10px 25px -5px rgba(0,0,0,0.1), 0 -8px 10px -6px rgba(0,0,0,0.1); }
-        #history-modal-panel.active { transform: translateY(0); }
+        #history-modal-overlay, #payment-modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.5); opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0.3s; z-index: 40; }
+        #history-modal-overlay.active, #payment-modal-overlay.active { opacity: 1; visibility: visible; }
+        #history-modal-panel, #payment-modal-panel { position: fixed; left: 0; right: 0; bottom: 0; height: 75vh; background-color: var(--tg-bg); border-top-left-radius: 1.5rem; border-top-right-radius: 1.5rem; transform: translateY(100%); transition: transform 0.3s ease-in-out; z-index: 50; display: flex; flex-direction: column; padding: 1rem; box-shadow: 0 -10px 25px -5px rgba(0,0,0,0.1), 0 -8px 10px -6px rgba(0,0,0,0.1); }
+        #history-modal-panel.active, #payment-modal-panel.active { transform: translateY(0); }
     </style>
 </head>
 <body class="flex flex-col h-screen">
@@ -186,6 +186,12 @@
         <h3 class="text-xl font-bold mb-4 flex-shrink-0">История чатов</h3>
         <div id="chat-list" class="space-y-2 overflow-y-auto flex-grow"></div>
     </div>
+    
+    <!-- Модальное окно оплаты -->
+    <div id="payment-modal-overlay"></div>
+    <div id="payment-modal-panel" style="height: 70vh; padding: 0;">
+        <iframe id="payment-iframe" class="w-full h-full border-0 rounded-t-2xl"></iframe>
+    </div>
 
     <!-- Подключение Prism.js JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
@@ -258,7 +264,8 @@
                     'user-profile-card', 'user-avatar', 'user-fullname', 'user-username',
                     'copy-referral-link-button', 'referral-link-input', 'invite-friend-button',
                     'referral-list-section', 'referral-list', 'referral-count',
-                    'global-loader', 'loader-message'
+                    'global-loader', 'loader-message',
+                    'payment-modal-overlay', 'payment-modal-panel', 'payment-iframe'
                 ];
                 ids.forEach(id => {
                     const camelCaseId = id.replace(/-(\w)/g, (_, c) => c.toUpperCase());
@@ -459,7 +466,7 @@
                             <p class="text-sm">Бесплатных генераций сегодня:</p>
                             <p class="text-2xl font-bold">${remaining < 0 ? 0 : remaining} / ${maxFreeGenerations}</p>
                             ${bonus_generations > 0 ? `<p class="text-sm text-blue-500 mt-1">Бонусных генераций: ${bonus_generations}</p>` : ''}
-                            <button id="subscribe-button" class="w-full mt-4 bg-yellow-400 text-black font-bold py-2 px-4 rounded-lg btn-transition">Подписаться</button>`;
+                            <button id="subscribe-button" class="w-full mt-4 bg-yellow-400 text-black font-bold py-2 px-4 rounded-lg btn-transition">Подписаться за 999 ₽</button>`;
                         document.getElementById('subscribe-button')?.addEventListener('click', () => App.paymentManager.initiateSubscription());
                     }
                 },
@@ -655,6 +662,17 @@
                 closeHistoryModal() {
                     App.elements.historyModalOverlay.classList.remove('active');
                     App.elements.historyModalPanel.classList.remove('active');
+                },
+                openPaymentModal(url) {
+                    App.elements.paymentIframe.src = url;
+                    App.elements.paymentModalOverlay.classList.add('active');
+                    App.elements.paymentModalPanel.classList.add('active');
+                },
+                closePaymentModal() {
+                    App.elements.paymentIframe.src = 'about:blank';
+                    App.elements.paymentModalOverlay.classList.remove('active');
+                    App.elements.paymentModalPanel.classList.remove('active');
+                    this.renderSubscriptionStatus();
                 }
             },
 
@@ -683,6 +701,7 @@
                     
                     App.elements.copyReferralLinkButton.addEventListener('click', () => App.referralManager.copyReferralLink());
                     App.elements.inviteFriendButton.addEventListener('click', () => App.referralManager.shareReferralLink());
+                    App.elements.paymentModalOverlay.addEventListener('click', () => App.ui.closePaymentModal());
                 }
             },
 
@@ -798,25 +817,15 @@
                 async initiateSubscription() {
                     try {
                         const userId = App.state.userProfile.id;
-                        const { data, error } = await App.api.invokeFunction('handle-actions', {
-                            action: 'create_invoice',
-                            userId: userId
+                        const { data, error } = await App.api.invokeFunction('create-yookassa-payment', {
+                            userId: userId,
+                            amount: 999
                         });
 
                         if (error) throw error;
-                        if (!data.invoiceLink) throw new Error('Не удалось получить ссылку на оплату.');
+                        if (!data.confirmationUrl) throw new Error('Не удалось получить ссылку на оплату.');
 
-                        App.tg.openInvoice(data.invoiceLink, async (status) => {
-                            if (status === 'paid') {
-                                App.tg.HapticFeedback.notificationOccurred('success');
-                                App.ui.showPopup({ title: 'Успешно!', message: 'Подписка активирована.' });
-                                await App.dataManager.loadInitialDataAndChats();
-                                App.ui.renderSubscriptionStatus();
-                            } else {
-                                App.tg.HapticFeedback.notificationOccurred('error');
-                                App.ui.showPopup({ title: 'Ошибка', message: `Оплата не удалась. Статус: ${status}` });
-                            }
-                        });
+                        App.ui.openPaymentModal(data.confirmationUrl);
 
                     } catch (error) {
                         console.error('Payment initiation error:', error);
