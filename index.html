@@ -47,7 +47,7 @@
         .user-bubble { background-color: var(--tg-button); color: var(--tg-button-text); align-self: flex-end; border-bottom-right-radius: 5px; }
         .ai-bubble { background-color: var(--tg-secondary-bg); color: var(--tg-text); align-self: flex-start; border-bottom-left-radius: 5px; }
         .nav-button.active { color: var(--tg-button); }
-        .sub-nav-button.active, .inspector-input-tab.active { border-bottom: 2px solid var(--tg-button); color: var(--tg-button); font-weight: 600; }
+        .sub-nav-button.active { border-bottom: 2px solid var(--tg-button); color: var(--tg-button); font-weight: 600; }
         .btn-transition { transition: background-color 0.2s, opacity 0.2s, transform 0.1s; }
         .btn-transition:active { transform: scale(0.95); }
         .loader {
@@ -113,31 +113,36 @@
             </div>
         </div>
 
-        <!-- СТРАНИЦА 3: ИНСПЕКТОР КОДА -->
-        <div id="inspector-page" class="page flex-col h-full">
-            <div class="flex-shrink-0 p-3 border-b border-[var(--tg-secondary-bg)] bg-[var(--tg-bg)]"><h2 class="text-xl font-bold text-center">Инспектор Кода</h2></div>
-            <div class="flex-shrink-0 flex border-b border-[var(--tg-secondary-bg)] bg-[var(--tg-bg)]">
-                <button data-input-view="url" class="inspector-input-tab active w-1/2 p-3 text-center text-sm font-medium">По URL</button>
-                <button data-input-view="direct" class="inspector-input-tab w-1/2 p-3 text-center text-sm font-medium text-[var(--tg-hint)]">Вставить код</button>
-            </div>
-            <div id="inspector-inputs" class="flex-shrink-0">
-                <div id="url-input-view" class="flex items-center space-x-2 p-2 bg-[var(--tg-bg)]">
-                    <input id="url-input" type="url" placeholder="https://example.com" class="w-full p-3 rounded-full focus:outline-none bg-[var(--tg-secondary-bg)] text-[var(--tg-text)] placeholder-[var(--tg-hint)]">
-                    <button id="load-url-button" class="p-3 rounded-full transition-opacity btn-transition flex-shrink-0 bg-[var(--tg-button)] text-[var(--tg-button-text)]" aria-label="Загрузить"><svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.47 5.47 0 00-1.1 1.143 4.002 4.002 0 00-7.8 1.857A4.002 4.002 0 003 15z" /></svg></button>
+        <!-- СТРАНИЦА 3: ДЕПЛОЙ -->
+        <div id="deploy-page" class="page flex-col h-full p-6 text-center space-y-6 justify-center items-center">
+            <div class="w-full max-w-md">
+                <svg class="mx-auto h-16 w-16 text-[var(--tg-button)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l-3.75 3.75M12 9.75l3.75 3.75m-7.5 4.5a9 9 0 1115 0 4.5 4.5 0 01-4.5 4.5h-6a4.5 4.5 0 01-4.5-4.5z" />
+                </svg>
+                <h2 class="text-2xl font-bold mt-4">Опубликовать приложение</h2>
+                <p class="text-[var(--tg-hint)] mt-2">
+                    Загрузите ваше веб-приложение, созданное в текущем чате, и получите публичную ссылку. Деплой доступен только для полноценных приложений (код, содержащий теги &lt;html&gt; и &lt;body&gt;).
+                </p>
+
+                <button id="deploy-button" class="w-full mt-8 bg-[var(--tg-button)] text-[var(--tg-button-text)] font-bold py-3 px-4 rounded-xl btn-transition flex items-center justify-center space-x-2">
+                    <span>Опубликовать</span>
+                </button>
+
+                <div id="deploy-loader" class="mt-6 hidden flex-col items-center">
+                    <div class="loader"></div>
+                    <p id="deploy-status-message" class="mt-2 text-[var(--tg-hint)]">Публикация...</p>
                 </div>
-                <div id="direct-input-view" class="hidden p-2 flex flex-col">
-                    <textarea id="direct-code-input" class="w-full h-24 p-2 rounded-lg bg-[var(--tg-secondary-bg)] text-[var(--tg-text)] placeholder-[var(--tg-hint)] font-mono text-sm" placeholder="Вставьте ваш HTML код сюда..."></textarea>
-                    <button id="render-direct-code-button" class="mt-2 bg-[var(--tg-button)] text-[var(--tg-button-text)] py-2 px-4 rounded-lg btn-transition">Отобразить</button>
+
+                <div id="deploy-result-section" class="mt-6 hidden w-full text-left">
+                     <label class="font-semibold text-sm">Ваша ссылка:</label>
+                     <div class="flex items-center space-x-2 mt-1">
+                        <input id="deploy-link-input" type="text" readonly class="w-full p-2 rounded-lg focus:outline-none bg-[var(--tg-secondary-bg)] text-sm">
+                        <button id="copy-deploy-link-button" class="p-2 rounded-lg bg-[var(--tg-button)] text-[var(--tg-button-text)] btn-transition flex-shrink-0" aria-label="Копировать ссылку">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                        </button>
+                    </div>
+                     <button id="open-deploy-link-button" class="w-full mt-2 bg-transparent border border-[var(--tg-button)] text-[var(--tg-button)] font-bold py-2 px-4 rounded-lg btn-transition">Открыть в браузере</button>
                 </div>
-            </div>
-            <div class="flex-shrink-0 flex border-b border-[var(--tg-secondary-bg)] bg-[var(--tg-bg)]">
-                <button data-view="inspector-code" class="sub-nav-button active w-1/2 p-4 text-center text-[var(--tg-hint)]">Код</button>
-                <button data-view="inspector-preview" class="sub-nav-button w-1/2 p-4 text-center text-[var(--tg-hint)]">Превью</button>
-            </div>
-            <div id="inspector-code-view" class="flex-grow flex flex-col overflow-hidden"><div class="flex-grow overflow-auto bg-[#2d2d2d]"><pre><code id="inspector-code-output" class="language-html text-sm p-4 block whitespace-pre-wrap font-mono">// Вставьте URL или код и нажмите "Загрузить/Отобразить".</code></pre></div></div>
-            <div id="inspector-preview-view" class="flex-grow hidden bg-white relative">
-                <iframe id="inspector-preview-iframe" class="w-full h-full border-0"></iframe>
-                <div id="inspector-loader" class="absolute inset-0 bg-white bg-opacity-75 flex-col items-center justify-center hidden"><div class="loader" style="width: 32px; height: 32px;"></div><p class="mt-4 text-lg font-semibold text-[var(--tg-text)]">Загрузка...</p></div>
             </div>
         </div>
 
@@ -176,7 +181,7 @@
     <footer class="flex-shrink-0 h-20 bg-[var(--tg-bg)] border-t border-[var(--tg-secondary-bg)] flex justify-around items-center">
         <button data-page="chat-page" class="nav-button active flex flex-col items-center justify-center p-2 h-full" aria-label="Чат"><svg class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg><span class="text-xs">Чат</span></button>
         <button data-page="creation-page" class="nav-button flex flex-col items-center justify-center p-2 h-full" aria-label="Создание"><svg class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg><span class="text-xs">Создание</span></button>
-        <button data-page="inspector-page" class="nav-button flex flex-col items-center justify-center p-2 h-full" aria-label="Инспектор"><svg class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg><span class="text-xs">Инспектор</span></button>
+        <button data-page="deploy-page" class="nav-button flex flex-col items-center justify-center p-2 h-full" aria-label="Деплой"><svg class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l-3.75 3.75M12 9.75l3.75 3.75m-7.5 4.5a9 9 0 1115 0 4.5 4.5 0 01-4.5 4.5h-6a4.5 4.5 0 01-4.5-4.5z" /></svg><span class="text-xs">Деплой</span></button>
         <button data-page="profile-page" class="nav-button flex flex-col items-center justify-center p-2 h-full" aria-label="Профиль"><svg class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg><span class="text-xs">Профиль</span></button>
     </footer>
 
@@ -214,6 +219,7 @@
                 activeChat: null,
                 myReferrals: [],
                 isGenerating: false,
+                isDeploying: false,
             },
             elements: {},
             tg: window.Telegram.WebApp,
@@ -252,15 +258,13 @@
 
             cacheDOMElements() {
                 const ids = [
-                    'chat-page', 'creation-page', 'profile-page', 'chat-history', 'prompt-input', 
+                    'chat-page', 'creation-page', 'deploy-page', 'profile-page', 'chat-history', 'prompt-input', 
                     'generate-button', 'code-view', 'preview-view', 'code-output', 'preview-iframe', 
                     'copy-button', 'subscription-status', 'chat-list', 'chat-title',
                     'history-button', 'page-new-chat-button', 'refresh-preview-button',
                     'history-modal-overlay', 'history-modal-panel',
-                    'inspector-page', 'url-input', 'load-url-button', 
-                    'inspector-code-view', 'inspector-preview-view', 
-                    'inspector-code-output', 'inspector-preview-iframe', 'inspector-loader',
-                    'url-input-view', 'direct-input-view', 'direct-code-input', 'render-direct-code-button',
+                    'deploy-button', 'deploy-loader', 'deploy-status-message', 'deploy-result-section',
+                    'deploy-link-input', 'copy-deploy-link-button', 'open-deploy-link-button',
                     'user-profile-card', 'user-avatar', 'user-fullname', 'user-username',
                     'copy-referral-link-button', 'referral-link-input', 'invite-friend-button',
                     'referral-list-section', 'referral-list', 'referral-count',
@@ -274,8 +278,6 @@
                 this.elements.pages = document.querySelectorAll('.page');
                 this.elements.navButtons = document.querySelectorAll('.nav-button');
                 this.elements.subNavButtons = document.querySelectorAll('#creation-page .sub-nav-button');
-                this.elements.subNavButtonsInspector = document.querySelectorAll('#inspector-page .sub-nav-button');
-                this.elements.inspectorInputTabs = document.querySelectorAll('#inspector-page .inspector-input-tab');
             },
             
             dataManager: {
@@ -316,7 +318,7 @@
 
                     const { data: chats, error: chatsError } = await App.supabase
                         .from('chats')
-                        .select('id, title, created_at')
+                        .select('id, title, created_at, deployed_url') // Запрашиваем и deployed_url
                         .eq('user_id', userId)
                         .order('created_at', { ascending: false });
 
@@ -373,9 +375,10 @@
                             user_id: userId,
                             title: 'Новый чат',
                             messages: [{ sender: 'ai', text: 'Привет! 👋 Опиши, какое веб-приложение ты хочешь создать.' }],
-                            generated_code: ''
+                            generated_code: '',
+                            deployed_url: null
                         })
-                        .select('id, title, created_at')
+                        .select('id, title, created_at, deployed_url')
                         .single();
                     
                     if (error) {
@@ -387,10 +390,10 @@
                 
                 async saveActiveChat() {
                     if (!App.state.activeChat) return;
-                    const { id, title, messages, generated_code } = App.state.activeChat;
+                    const { id, title, messages, generated_code, deployed_url } = App.state.activeChat;
                     const { error } = await App.supabase
                         .from('chats')
-                        .update({ title, messages, generated_code })
+                        .update({ title, messages, generated_code, deployed_url })
                         .eq('id', id);
                     
                     if (error) console.error('Failed to save chat:', error);
@@ -577,24 +580,14 @@
                     if (pageId === 'profile-page') {
                         this.renderProfilePage();
                     }
+                    if (pageId === 'deploy-page') {
+                        App.deployManager.initDeployPage();
+                    }
                 },
                 toggleCodePreview(view) {
                     App.elements.subNavButtons.forEach(b => b.classList.toggle('active', b.dataset.view === view));
                     App.elements.codeView.classList.toggle('hidden', view !== 'code');
                     App.elements.previewView.classList.toggle('hidden', view !== 'preview');
-                },
-                toggleInspectorInputView(view) {
-                    App.elements.inspectorInputTabs.forEach(b => {
-                        b.classList.toggle('active', b.dataset.inputView === view);
-                        b.classList.toggle('text-[var(--tg-hint)]', b.dataset.inputView !== view);
-                    });
-                    App.elements.urlInputView.classList.toggle('hidden', view !== 'url');
-                    App.elements.directInputView.classList.toggle('hidden', view !== 'direct');
-                },
-                toggleInspectorView(view) {
-                    App.elements.subNavButtonsInspector.forEach(b => b.classList.toggle('active', b.dataset.view === view));
-                    App.elements.inspectorCodeView.classList.toggle('hidden', view !== 'inspector-code');
-                    App.elements.inspectorPreviewView.classList.toggle('hidden', view !== 'inspector-preview');
                 },
                 toggleGenerationButton(disabled) {
                     App.state.isGenerating = disabled;
@@ -693,12 +686,11 @@
                         App.tg.HapticFeedback.notificationOccurred('success');
                     });
 
-                    App.elements.inspectorInputTabs.forEach(button => button.addEventListener('click', () => App.ui.toggleInspectorInputView(button.dataset.inputView)));
-                    App.elements.loadUrlButton.addEventListener('click', () => App.inspectorManager.handleLoadUrl());
-                    App.elements.urlInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') App.inspectorManager.handleLoadUrl(); });
-                    App.elements.renderDirectCodeButton.addEventListener('click', () => App.inspectorManager.handleRenderDirectCode());
-                    App.elements.subNavButtonsInspector.forEach(button => button.addEventListener('click', () => App.ui.toggleInspectorView(button.dataset.view)));
-                    
+                    // Deploy Page Listeners
+                    App.elements.deployButton.addEventListener('click', () => App.deployManager.handleDeploy());
+                    App.elements.copyDeployLinkButton.addEventListener('click', () => App.deployManager.copyDeployLink());
+                    App.elements.openDeployLinkButton.addEventListener('click', () => App.deployManager.openDeployLink());
+
                     App.elements.copyReferralLinkButton.addEventListener('click', () => App.referralManager.copyReferralLink());
                     App.elements.inviteFriendButton.addEventListener('click', () => App.referralManager.shareReferralLink());
                     App.elements.paymentModalOverlay.addEventListener('click', () => App.ui.closePaymentModal());
@@ -734,6 +726,85 @@
                     document.body.removeChild(textarea);
                 }
             },
+            
+            deployManager: {
+                initDeployPage() {
+                    const chat = App.state.activeChat;
+                    App.elements.deployLoader.classList.add('hidden');
+                    if (chat && chat.deployed_url) {
+                        App.elements.deployLinkInput.value = chat.deployed_url;
+                        App.elements.deployResultSection.classList.remove('hidden');
+                    } else {
+                        App.elements.deployResultSection.classList.add('hidden');
+                    }
+                },
+                async handleDeploy() {
+                    if (App.state.isDeploying) return;
+                    
+                    const chat = App.state.activeChat;
+                    const code = chat?.generated_code;
+
+                    if (!code || !code.trim()) {
+                        App.ui.showPopup({ title: 'Ошибка', message: 'Нет кода для публикации. Сначала сгенерируйте приложение в чате.' });
+                        return;
+                    }
+
+                    const isFullApp = /<html/i.test(code) && /<body/i.test(code);
+                    if (!isFullApp) {
+                        App.ui.showPopup({ title: 'Невозможно опубликовать', message: 'Публикация доступна только для полноценных приложений. Ваш код не является полной HTML-страницей.' });
+                        return;
+                    }
+
+                    App.state.isDeploying = true;
+                    App.elements.deployLoader.classList.remove('hidden');
+                    App.elements.deployResultSection.classList.add('hidden');
+                    App.elements.deployStatusMessage.textContent = 'Публикация...';
+                    App.elements.deployButton.disabled = true;
+
+                    try {
+                        const { url } = await App.api.deployApp(code, chat.id);
+                        
+                        // Update local state
+                        chat.deployed_url = url;
+                        const chatInList = App.state.chats.find(c => c.id === chat.id);
+                        if (chatInList) chatInList.deployed_url = url;
+
+                        // Save to DB
+                        await App.dataManager.saveActiveChat();
+
+                        App.elements.deployLinkInput.value = url;
+                        App.elements.deployLoader.classList.add('hidden');
+                        App.elements.deployResultSection.classList.remove('hidden');
+                        App.tg.HapticFeedback.notificationOccurred('success');
+
+                    } catch (error) {
+                        console.error('Deploy error:', error);
+                        App.elements.deployStatusMessage.textContent = `Ошибка: ${error.message}`;
+                        App.tg.HapticFeedback.notificationOccurred('error');
+                        // Не скрываем лоадер, чтобы показать сообщение об ошибке
+                    } finally {
+                        App.state.isDeploying = false;
+                        App.elements.deployButton.disabled = false;
+                    }
+                },
+                copyDeployLink() {
+                    const link = App.elements.deployLinkInput.value;
+                    if (!link) return;
+                    navigator.clipboard.writeText(link).then(() => {
+                        App.tg.HapticFeedback.notificationOccurred('success');
+                        App.ui.showPopup({ title: 'Успешно', message: 'Ссылка скопирована!' });
+                    }, () => {
+                        App.tg.HapticFeedback.notificationOccurred('error');
+                        App.ui.showPopup({ title: 'Ошибка', message: 'Не удалось скопировать ссылку.' });
+                    });
+                },
+                openDeployLink() {
+                    const link = App.elements.deployLinkInput.value;
+                    if (link) {
+                        App.tg.openLink(link);
+                    }
+                }
+            },
 
             referralManager: {
                 async processNewReferral() {
@@ -744,30 +815,30 @@
                         console.log(`New user ${currentUser.id} referred by ${referrerId}`);
                         try {
                             const { data: referrerProfile, error: referrerError } = await App.supabase
-                              .from('profiles')
-                              .select('bonus_generations')
-                              .eq('id', referrerId)
-                              .single();
+                                .from('profiles')
+                                .select('bonus_generations')
+                                .eq('id', referrerId)
+                                .single();
 
                             if (referrerError) throw new Error(`Could not find referrer: ${referrerError.message}`);
 
                             const { error: updateReferrerError } = await App.supabase
-                              .from('profiles')
-                              .update({ bonus_generations: (referrerProfile.bonus_generations || 0) + 1 })
-                              .eq('id', referrerId);
+                                .from('profiles')
+                                .update({ bonus_generations: (referrerProfile.bonus_generations || 0) + 1 })
+                                .eq('id', referrerId);
 
                             if (updateReferrerError) throw new Error(`Could not update referrer bonus: ${updateReferrerError.message}`);
 
                             const { error: updateNewUserError } = await App.supabase
-                              .from('profiles')
-                              .update({ referrer_id: referrerId })
-                              .eq('id', currentUser.id);
+                                .from('profiles')
+                                .update({ referrer_id: referrerId })
+                                .eq('id', currentUser.id);
 
                             if (updateNewUserError) throw new Error(`Could not update new user's referrer: ${updateNewUserError.message}`);
 
                             const { error: insertReferralError } = await App.supabase
-                              .from('referrals')
-                              .insert({ referrer_id: referrerId, referred_id: currentUser.id });
+                                .from('referrals')
+                                .insert({ referrer_id: referrerId, referred_id: currentUser.id });
 
                             if (insertReferralError) throw new Error(`Could not log referral connection: ${insertReferralError.message}`);
                             
@@ -830,52 +901,6 @@
                     } catch (error) {
                         console.error('Payment initiation error:', error);
                         App.ui.showPopup({ title: 'Ошибка', message: `Не удалось начать процесс оплаты: ${error.message}` });
-                    }
-                }
-            },
-
-            inspectorManager: {
-                handleRenderDirectCode() {
-                    const htmlContent = App.elements.directCodeInput.value;
-                    if (!htmlContent.trim()) {
-                        App.ui.showPopup({ title: 'Ошибка', message: 'Поле для кода пустое.' });
-                        return;
-                    }
-
-                    App.elements.inspectorCodeOutput.textContent = htmlContent;
-                    Prism.highlightElement(App.elements.inspectorCodeOutput);
-                    
-                    App.elements.inspectorPreviewIframe.srcdoc = htmlContent;
-                    App.tg.HapticFeedback.notificationOccurred('success');
-                    App.ui.toggleInspectorView('inspector-preview');
-                },
-                async handleLoadUrl() {
-                    const url = App.elements.urlInput.value.trim();
-                    if (!url) {
-                        App.ui.showPopup({ title: 'Ошибка', message: 'Пожалуйста, введите URL.' });
-                        return;
-                    }
-
-                    App.elements.inspectorLoader.style.display = 'flex';
-                    App.elements.loadUrlButton.disabled = true;
-
-                    try {
-                        const htmlContent = await App.api.fetchUrlContent(url);
-                        
-                        App.elements.inspectorCodeOutput.textContent = htmlContent;
-                        Prism.highlightElement(App.elements.inspectorCodeOutput);
-                        
-                        App.elements.inspectorPreviewIframe.srcdoc = htmlContent;
-
-                        App.tg.HapticFeedback.notificationOccurred('success');
-
-                    } catch (error) {
-                        console.error('Fetch URL Error:', error);
-                        App.ui.showPopup({ title: 'Ошибка загрузки', message: `Не удалось загрузить код с ${url}. Убедитесь, что URL правильный и сайт доступен. Ошибка: ${error.message}` });
-                        App.tg.HapticFeedback.notificationOccurred('error');
-                    } finally {
-                        App.elements.inspectorLoader.style.display = 'none';
-                        App.elements.loadUrlButton.disabled = false;
                     }
                 }
             },
@@ -978,6 +1003,18 @@
                     if (error) throw error;
                     return data;
                 },
+                async deployApp(htmlContent, chatId) {
+                    const { data, error } = await App.supabase.functions.invoke('deploy-app', {
+                        body: {
+                            content: htmlContent,
+                            chatId: chatId,
+                            userId: App.state.userProfile.id
+                        }
+                    });
+                    if (error) throw new Error(error.message);
+                    if (!data || !data.url) throw new Error('Не удалось получить URL после деплоя.');
+                    return data;
+                },
                 createCodeGenerationPrompt(userPrompt, existingCode) {
                     const baseInstruction = `Твоя задача - быть экспертом по созданию html блоков, компонентов, приложений. Ты должен вернуть ТОЛЬКО HTML-код в одном блоке \`\`\`html ... \`\`\`. Без лишних слов, объяснений или комментариев вне кода. Код должен быть полным и самодостаточным (включая HTML, CSS в <style> и JS в <script>). Используй Tailwind CSS для стилизации.`;
                     return existingCode
@@ -985,7 +1022,7 @@
                         : `${baseInstruction}\nЗапрос пользователя: "${userPrompt}".\nСоздай код с нуля.`;
                 },
                 async callGemini(prompt, retries = 3, delay = 1000) {
-                    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${App.config.apiKey}`;
+                    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${App.config.apiKey}`;
                     const payload = { contents: [{ parts: [{ text: prompt }] }] };
 
                     try {
@@ -1015,18 +1052,6 @@
                             throw error;
                         }
                     }
-                },
-                async fetchUrlContent(url) {
-                    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-                    
-                    const response = await fetch(proxyUrl);
-                    
-                    if (!response.ok) {
-                        throw new Error(`Не удалось получить ответ от сервера. Статус: ${response.status}`);
-                    }
-                    
-                    const textContent = await response.text();
-                    return textContent;
                 }
             }
         };
