@@ -65,10 +65,10 @@
         .shake-it { animation: shake 0.3s ease-in-out; }
         pre[class*="language-"] { background: #2d2d2d; margin: 0; border-radius: 0; }
         code[class*="language-"] { font-size: 14px; line-height: 1.5; }
-        #history-modal-overlay, #payment-modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.5); opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0.3s; z-index: 40; }
-        #history-modal-overlay.active, #payment-modal-overlay.active { opacity: 1; visibility: visible; }
-        #history-modal-panel, #payment-modal-panel { position: fixed; left: 0; right: 0; bottom: 0; height: 75vh; background-color: var(--tg-bg); border-top-left-radius: 1.5rem; border-top-right-radius: 1.5rem; transform: translateY(100%); transition: transform 0.3s ease-in-out; z-index: 50; display: flex; flex-direction: column; padding: 1rem; box-shadow: 0 -10px 25px -5px rgba(0,0,0,0.1), 0 -8px 10px -6px rgba(0,0,0,0.1); }
-        #history-modal-panel.active, #payment-modal-panel.active { transform: translateY(0); }
+        #history-modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.5); opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0.3s; z-index: 40; }
+        #history-modal-overlay.active { opacity: 1; visibility: visible; }
+        #history-modal-panel { position: fixed; left: 0; right: 0; bottom: 0; height: 75vh; background-color: var(--tg-bg); border-top-left-radius: 1.5rem; border-top-right-radius: 1.5rem; transform: translateY(100%); transition: transform 0.3s ease-in-out; z-index: 50; display: flex; flex-direction: column; padding: 1rem; box-shadow: 0 -10px 25px -5px rgba(0,0,0,0.1), 0 -8px 10px -6px rgba(0,0,0,0.1); }
+        #history-modal-panel.active { transform: translateY(0); }
     </style>
 </head>
 <body class="flex flex-col h-screen">
@@ -187,12 +187,6 @@
         <div id="chat-list" class="space-y-2 overflow-y-auto flex-grow"></div>
     </div>
     
-    <!-- Модальное окно оплаты -->
-    <div id="payment-modal-overlay"></div>
-    <div id="payment-modal-panel" style="height: 70vh; padding: 0;">
-        <iframe id="payment-iframe" class="w-full h-full border-0 rounded-t-2xl"></iframe>
-    </div>
-
     <!-- Подключение Prism.js JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
@@ -264,8 +258,7 @@
                     'user-profile-card', 'user-avatar', 'user-fullname', 'user-username',
                     'copy-referral-link-button', 'referral-link-input', 'invite-friend-button',
                     'referral-list-section', 'referral-list', 'referral-count',
-                    'global-loader', 'loader-message',
-                    'payment-modal-overlay', 'payment-modal-panel', 'payment-iframe'
+                    'global-loader', 'loader-message'
                 ];
                 ids.forEach(id => {
                     const camelCaseId = id.replace(/-(\w)/g, (_, c) => c.toUpperCase());
