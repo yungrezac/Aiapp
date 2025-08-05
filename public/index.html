@@ -118,7 +118,6 @@
 
         <!-- СТРАНИЦА 3: ПРОФИЛЬ -->
         <div id="profile-page" class="page p-4 overflow-y-auto flex-col h-full space-y-4">
-            <!-- ИЗМЕНЕНИЕ: Карточка профиля теперь содержит контейнер для Ton Connect -->
             <div id="user-profile-card" class="flex items-center justify-between space-x-4 p-4 bg-[var(--tg-secondary-bg)] rounded-xl">
                 <div class="flex items-center space-x-4 min-w-0">
                     <img id="user-avatar" src="https://placehold.co/64x64/EFEFEF/333333?text=User" class="w-16 h-16 rounded-full object-cover bg-gray-300 flex-shrink-0">
@@ -131,6 +130,7 @@
             </div>
 
             <div id="subscription-status" class="bg-[var(--tg-secondary-bg)] p-4 rounded-xl"></div>
+            
             <div class="bg-[var(--tg-secondary-bg)] p-4 rounded-xl space-y-3">
                 <h3 class="text-lg font-bold">Пригласите друзей</h3>
                 <p class="text-sm text-[var(--tg-hint)]">Пригласите друга и получите бонус! Вы получите **1 генерацию** за каждого нового пользователя и **10 генераций**, если он оформит подписку. Ваш друг получит **1 бонусную генерацию** сразу после перехода по ссылке.</p>
@@ -166,8 +166,6 @@
         <div id="chat-list" class="space-y-2 overflow-y-auto flex-grow"></div>
     </div>
     
-    <!-- ИЗМЕНЕНИЕ: Контейнер для Ton Connect удален из конца body, так как он теперь в карточке профиля -->
-
     <!-- Подключение Prism.js JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
@@ -425,6 +423,7 @@
                     App.elements.userFullname.textContent = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Anonymous';
                     App.elements.userUsername.textContent = user.username ? `@${user.username}` : 'No username';
                 },
+                // ИЗМЕНЕНИЕ: Функция полностью переработана
                 renderSubscriptionStatus() {
                     const profile = App.state.userProfile;
                     if (!profile) return;
@@ -434,18 +433,52 @@
                     const el = App.elements.subscriptionStatus;
 
                     if (subscription_is_active && new Date(subscription_end_date) > new Date()) {
-                        el.innerHTML = `<p class="text-sm text-green-500 font-semibold">PRO Подписка активна</p><p class="text-lg font-bold">Неограниченно генераций</p><p class="text-xs opacity-70 mt-1">Истекает: ${new Date(subscription_end_date).toLocaleDateString()}</p>`;
+                        el.innerHTML = `
+                            <h3 class="text-lg font-bold text-green-500">PRO-доступ активен</h3>
+                            <p class="text-sm text-[var(--tg-text)]">Все возможности разблокированы. Спасибо за поддержку!</p>
+                            <p class="text-xs text-[var(--tg-hint)] mt-2">Истекает: ${new Date(subscription_end_date).toLocaleDateString()}</p>
+                        `;
                     } else {
                         const remaining = maxFreeGenerations - daily_generations_count;
                         const priceInTon = parseInt(App.config.tonSubscriptionPrice) / 1_000_000_000;
+                        const checkIcon = `<svg class="w-5 h-5 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>`;
+
                         el.innerHTML = `
-                            <p class="text-sm">Бесплатных генераций сегодня:</p>
-                            <p class="text-2xl font-bold">${remaining < 0 ? 0 : remaining} / ${maxFreeGenerations}</p>
-                            ${bonus_generations > 0 ? `<p class="text-sm text-blue-500 mt-1">Бонусных генераций: ${bonus_generations}</p>` : ''}
-                            <button id="subscribe-button" class="w-full mt-4 bg-blue-500 text-white font-bold py-2 px-4 rounded-lg btn-transition flex items-center justify-center">
+                            <div class="text-center mb-4">
+                                <p class="text-sm">Бесплатных генераций сегодня:</p>
+                                <p class="text-2xl font-bold">${remaining < 0 ? 0 : remaining} / ${maxFreeGenerations}</p>
+                                ${bonus_generations > 0 ? `<p class="text-sm text-blue-500 mt-1">Бонусных генераций: ${bonus_generations}</p>` : ''}
+                            </div>
+                            
+                            <div class="border-t border-[var(--tg-hint)] opacity-20 my-4"></div>
+
+                            <div>
+                                <h3 class="text-lg font-bold text-center mb-3">Получите PRO-доступ</h3>
+                                <ul class="space-y-2 text-sm">
+                                    <li class="flex items-center space-x-3">
+                                        ${checkIcon}
+                                        <span><strong>Неограниченные</strong> генерации кода</span>
+                                    </li>
+                                    <li class="flex items-center space-x-3">
+                                        ${checkIcon}
+                                        <span>Доступ к самым <strong>продвинутым моделям ИИ</strong></span>
+                                    </li>
+                                    <li class="flex items-center space-x-3">
+                                        ${checkIcon}
+                                        <span><strong>Приоритетная</strong> обработка ваших запросов</span>
+                                    </li>
+                                    <li class="flex items-center space-x-3">
+                                        ${checkIcon}
+                                        <span>Поддержка и развитие проекта</span>
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <button id="subscribe-button" class="w-full mt-6 bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg btn-transition flex items-center justify-center text-base">
                                 <svg class="w-5 h-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.015 5.912a.647.647 0 01.916-.03L12.99 8.87a.645.645 0 010 1.02l-4.06 2.988a.647.647 0 01-.915-.99l3.14-2.306-3.14-2.305a.647.647 0 01.03-.96z" clip-rule="evenodd" /></svg>
-                                Подписаться за ${priceInTon} TON
-                            </button>`;
+                                Разблокировать PRO за ${priceInTon} TON
+                            </button>
+                        `;
                         document.getElementById('subscribe-button')?.addEventListener('click', () => App.paymentManager.initiateSubscription());
                     }
                 },
