@@ -118,13 +118,18 @@
 
         <!-- СТРАНИЦА 3: ПРОФИЛЬ -->
         <div id="profile-page" class="page p-4 overflow-y-auto flex-col h-full space-y-4">
-            <div id="user-profile-card" class="flex items-center space-x-4 p-4 bg-[var(--tg-secondary-bg)] rounded-xl">
-                <img id="user-avatar" src="https://placehold.co/80x80/EFEFEF/333333?text=User" class="w-20 h-20 rounded-full object-cover bg-gray-300">
-                <div class="flex-grow">
-                    <h2 id="user-fullname" class="text-xl font-bold">Имя пользователя</h2>
-                    <p id="user-username" class="text-sm text-[var(--tg-hint)]">@username</p>
+            <!-- ИЗМЕНЕНИЕ: Карточка профиля теперь содержит контейнер для Ton Connect -->
+            <div id="user-profile-card" class="flex items-center justify-between space-x-4 p-4 bg-[var(--tg-secondary-bg)] rounded-xl">
+                <div class="flex items-center space-x-4 min-w-0">
+                    <img id="user-avatar" src="https://placehold.co/64x64/EFEFEF/333333?text=User" class="w-16 h-16 rounded-full object-cover bg-gray-300 flex-shrink-0">
+                    <div class="flex-grow min-w-0">
+                        <h2 id="user-fullname" class="text-xl font-bold truncate">Имя пользователя</h2>
+                        <p id="user-username" class="text-sm text-[var(--tg-hint)] truncate">@username</p>
+                    </div>
                 </div>
+                <div id="ton-connect-container" class="flex-shrink-0"></div>
             </div>
+
             <div id="subscription-status" class="bg-[var(--tg-secondary-bg)] p-4 rounded-xl"></div>
             <div class="bg-[var(--tg-secondary-bg)] p-4 rounded-xl space-y-3">
                 <h3 class="text-lg font-bold">Пригласите друзей</h3>
@@ -161,8 +166,7 @@
         <div id="chat-list" class="space-y-2 overflow-y-auto flex-grow"></div>
     </div>
     
-    <!-- ИЗМЕНЕНИЕ: Добавлен контейнер для кнопки Ton Connect -->
-    <div id="ton-connect-container" class="fixed top-4 right-4 z-50"></div>
+    <!-- ИЗМЕНЕНИЕ: Контейнер для Ton Connect удален из конца body, так как он теперь в карточке профиля -->
 
     <!-- Подключение Prism.js JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
@@ -237,7 +241,7 @@
                     'copy-referral-link-button', 'referral-link-input', 'invite-friend-button',
                     'referral-list-section', 'referral-list', 'referral-count',
                     'global-loader', 'loader-message',
-                    'ton-connect-container' // Добавлен ID контейнера
+                    'ton-connect-container'
                 ];
                 ids.forEach(id => {
                     const camelCaseId = id.replace(/-(\w)/g, (_, c) => c.toUpperCase());
@@ -417,7 +421,7 @@
                     const user = App.tg.initDataUnsafe.user;
                     if (!user) return;
 
-                    App.elements.userAvatar.src = user.photo_url || `https://placehold.co/80x80/EFEFEF/333333?text=${user.first_name.charAt(0)}`;
+                    App.elements.userAvatar.src = user.photo_url || `https://placehold.co/64x64/EFEFEF/333333?text=${user.first_name.charAt(0)}`;
                     App.elements.userFullname.textContent = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Anonymous';
                     App.elements.userUsername.textContent = user.username ? `@${user.username}` : 'No username';
                 },
@@ -791,15 +795,10 @@
 
             paymentManager: {
                 async initiateSubscription() {
-                    // Сначала проверяем, подключен ли кошелек
                     if (!App.tonConnectUI.connected) {
-                        // Если нет, открываем модальное окно для подключения
                         await App.tonConnectUI.openModal();
-                        // Мы не отправляем транзакцию сразу, даем пользователю сначала подключиться.
-                        // Пользователь после подключения сможет нажать на кнопку еще раз.
                         return;
                     }
-                    // Если кошелек уже подключен, отправляем транзакцию
                     const success = await App.tonManager.sendTransaction();
 
                     if (success) {
