@@ -102,7 +102,6 @@
                 <button data-view="preview" class="sub-nav-button w-1/2 p-4 text-center text-[var(--tg-hint)]">Превью</button>
             </div>
             <div id="code-view" class="flex-grow flex flex-col overflow-hidden">
-                <!-- ИЗМЕНЕНИЕ: Кнопка "Опубликовать" удалена -->
                 <div class="p-2 flex-shrink-0 flex justify-end items-center space-x-2 bg-[var(--tg-bg)] border-b border-[var(--tg-secondary-bg)]">
                     <button id="copy-button" class="bg-[var(--tg-button)] text-[var(--tg-button-text)] px-4 py-2 rounded-lg text-sm btn-transition">Копировать</button>
                 </div>
@@ -179,6 +178,8 @@
                 supabaseUrl: 'https://mhwzgpexajfqqtlgivfc.supabase.co',
                 supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1od3pncGV4YWpmcXF0bGdpdmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQwMzU1ODAsImV4cCI6MjA2OTYxMTU4MH0.jmmkJ2gsfRMVOo3KVTHYS2u8IIoBUH7D5ZemZowwpzE',
                 maxFreeGenerations: 5,
+                // ИЗМЕНЕНИЕ: URL для запросов к API. Vercel сам перенаправит их на серверный код.
+                paymentApiEndpoint: '/api' 
             },
             state: {
                 userProfile: null,
@@ -186,7 +187,6 @@
                 activeChat: null,
                 myReferrals: [],
                 isGenerating: false,
-                // isDeploying state removed
             },
             elements: {},
             tg: window.Telegram.WebApp,
@@ -230,7 +230,6 @@
                     'copy-button', 'subscription-status', 'chat-list', 'chat-title',
                     'history-button', 'page-new-chat-button', 'refresh-preview-button',
                     'history-modal-overlay', 'history-modal-panel',
-                    // 'deploy-page', 'deployments-list', 'creation-deploy-button' removed
                     'user-profile-card', 'user-avatar', 'user-fullname', 'user-username',
                     'copy-referral-link-button', 'referral-link-input', 'invite-friend-button',
                     'referral-list-section', 'referral-list', 'referral-count',
@@ -282,7 +281,6 @@
 
                     App.state.userProfile = profile;
 
-                    // 'deployed_url' removed from select
                     const { data: chats, error: chatsError } = await App.supabase
                         .from('chats')
                         .select('id, title, created_at')
@@ -336,7 +334,6 @@
                 },
 
                 async createNewChatInDB(userId) {
-                    // 'deployed_url' removed from insert and select
                     const { data, error } = await App.supabase
                         .from('chats')
                         .insert({
@@ -357,7 +354,6 @@
                 
                 async saveActiveChat() {
                     if (!App.state.activeChat) return;
-                    // 'deployed_url' removed from destructuring and update
                     const { id, title, messages, generated_code } = App.state.activeChat;
                     const { error } = await App.supabase
                         .from('chats')
@@ -526,7 +522,6 @@
                         el.appendChild(chatItem);
                     });
                 },
-                // renderDeploymentsList function removed
                 addMessageToChat(text, sender, isTyping = false) {
                     const messageDiv = document.createElement('div');
                     messageDiv.className = `chat-bubble ${sender}-bubble flex items-center`;
@@ -549,7 +544,6 @@
                     if (pageId === 'profile-page') {
                         this.renderProfilePage();
                     }
-                    // Logic for deploy-page removed
                 },
                 toggleCodePreview(view) {
                     App.elements.subNavButtons.forEach(b => b.classList.toggle('active', b.dataset.view === view));
@@ -653,8 +647,6 @@
                         App.tg.HapticFeedback.notificationOccurred('success');
                     });
 
-                    // Event listener for deploy button removed
-
                     App.elements.copyReferralLinkButton.addEventListener('click', () => App.referralManager.copyReferralLink());
                     App.elements.inviteFriendButton.addEventListener('click', () => App.referralManager.shareReferralLink());
                     App.elements.paymentModalOverlay.addEventListener('click', () => App.ui.closePaymentModal());
@@ -691,8 +683,6 @@
                 }
             },
             
-            // deployManager object removed
-
             referralManager: {
                 async processNewReferral() {
                     const referrerId = App.tg.initDataUnsafe.start_param;
@@ -775,13 +765,31 @@
                 async initiateSubscription() {
                     try {
                         const userId = App.state.userProfile.id;
-                        const { data, error } = await App.api.invokeFunction('create-yookassa-payment', {
-                            userId: userId,
-                            amount: 999
+                        // Обращаемся к нашему же сайту по пути /api/create-payment
+                        const response = await fetch(`${App.config.paymentApiEndpoint}/create-payment`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                userId: userId,
+                                amount: 999,
+                                description: 'PRO подписка на 1 месяц',
+                                botUsername: App.config.botUsername,
+                                appName: App.config.appName
+                            }),
                         });
 
-                        if (error) throw error;
-                        if (!data.confirmationUrl) throw new Error('Не удалось получить ссылку на оплату.');
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            throw new Error(errorData.error || 'Ошибка сети при создании платежа.');
+                        }
+
+                        const data = await response.json();
+
+                        if (!data.confirmationUrl) {
+                            throw new Error('Не удалось получить ссылку на оплату от бэкенда.');
+                        }
 
                         App.ui.openPaymentModal(data.confirmationUrl);
 
@@ -885,12 +893,6 @@
             },
 
             api: {
-                async invokeFunction(name, body) {
-                    const { data, error } = await App.supabase.functions.invoke(name, { body: body });
-                    if (error) throw error;
-                    return data;
-                },
-                // deployApp function removed
                 createCodeGenerationPrompt(userPrompt, existingCode) {
                     const baseInstruction = `Твоя задача - быть экспертом по созданию html блоков, компонентов, приложений. Ты должен вернуть ТОЛЬКО HTML-код в одном блоке \`\`\`html ... \`\`\`. Без лишних слов, объяснений или комментариев вне кода. Код должен быть полным и самодостаточным (включая HTML, CSS в <style> и JS в <script>). Используй Tailwind CSS для стилизации.`;
                     return existingCode
