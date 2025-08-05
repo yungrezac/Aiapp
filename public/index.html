@@ -174,9 +174,9 @@
     document.addEventListener('DOMContentLoaded', () => {
         const App = {
             config: {
-                apiKey: 'AIzaSyBuXjShdZFvr76OKsl7FaL789Dxl3i6bgc', // Вставьте ваш ключ от Gemini
-                botUsername: 'yr_dev_bot', // Вставьте username вашего бота
-                appName: 'aiyrf', // Вставьте имя вашего Mini App
+                // ИЗМЕНЕНИЕ: API-ключ Gemini удален из фронтенда
+                botUsername: 'yr_dev_bot',
+                appName: 'aiyrf',
                 supabaseUrl: 'https://mhwzgpexajfqqtlgivfc.supabase.co',
                 supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1od3pncGV4YWpmcXF0bGdpdmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQwMzU1ODAsImV4cCI6MjA2OTYxMTU4MH0.jmmkJ2gsfRMVOo3KVTHYS2u8IIoBUH7D5ZemZowwpzE',
                 maxFreeGenerations: 5,
@@ -423,7 +423,6 @@
                     App.elements.userFullname.textContent = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Anonymous';
                     App.elements.userUsername.textContent = user.username ? `@${user.username}` : 'No username';
                 },
-                // ИЗМЕНЕНИЕ: Функция полностью переработана
                 renderSubscriptionStatus() {
                     const profile = App.state.userProfile;
                     if (!profile) return;
@@ -913,7 +912,8 @@
 
                     try {
                         const systemPrompt = App.api.createCodeGenerationPrompt(prompt, chat.generated_code);
-                        const newCode = await App.api.callGemini(systemPrompt);
+                        // ИЗМЕНЕНИЕ: Вызываем нашу прокси-функцию
+                        const newCode = await App.api.callGeminiProxy(systemPrompt);
                         const codeMatch = newCode.match(/```(?:html|css|javascript|)\n([\s\S]*?)\n```/s);
                         const finalCode = codeMatch ? codeMatch[1] : newCode;
 
@@ -935,12 +935,7 @@
                     } catch (error) {
                         console.error('Generation Error:', error);
                         indicator.remove();
-                        let errorMessage;
-                        if (error.message.includes('User location is not supported')) {
-                            errorMessage = "Похоже YR://DEV не доступен в вашем регионе, попробуйте включить VPN и перезагрузить приложение";
-                        } else {
-                            errorMessage = `Произошла ошибка: ${error.message}. Убедитесь, что вы указали правильный API-ключ.`;
-                        }
+                        let errorMessage = `Произошла ошибка: ${error.message}.`;
                         App.ui.addMessageToChat(errorMessage, 'ai');
                         chat.messages.push({ sender: 'ai', text: errorMessage });
                         await App.dataManager.saveActiveChat();
@@ -951,6 +946,7 @@
                 }
             },
 
+            // ИЗМЕНЕНИЕ: Логика вызова API переписана
             api: {
                 createCodeGenerationPrompt(userPrompt, existingCode) {
                     const baseInstruction = `Твоя задача - быть экспертом по созданию html блоков, компонентов, приложений. Ты должен вернуть ТОЛЬКО HTML-код в одном блоке \`\`\`html ... \`\`\`. Без лишних слов, объяснений или комментариев вне кода. Код должен быть полным и самодостаточным (включая HTML, CSS в <style> и JS в <script>). Используй Tailwind CSS для стилизации.`;
@@ -958,33 +954,33 @@
                         ? `${baseInstruction}\nВот существующий код:\n\n${existingCode}\n\nЗапрос пользователя: "${userPrompt}".\nИзмени код и верни новую полную версию.`
                         : `${baseInstruction}\nЗапрос пользователя: "${userPrompt}".\nСоздай код с нуля.`;
                 },
-                async callGemini(prompt, retries = 3, delay = 1000) {
-                    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${App.config.apiKey}`;
-                    const payload = { contents: [{ parts: [{ text: prompt }] }] };
-
+                async callGeminiProxy(prompt, retries = 3, delay = 1000) {
+                    // URL нашей серверной функции на Vercel
+                    const PROXY_URL = '/api/gemini-proxy';
+                    
                     try {
-                        const response = await fetch(API_URL, {
+                        const response = await fetch(PROXY_URL, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(payload)
+                            body: JSON.stringify({ prompt: prompt })
                         });
-                        if (!response.ok) {
-                            if (response.status < 500 && response.status !== 429) {
-                                const errorData = await response.json();
-                                throw new Error(errorData.error?.message || `HTTP ошибка: ${response.status}`);
-                            }
-                            throw new Error(`Server error: ${response.status}`);
-                        }
+
                         const data = await response.json();
+
+                        if (!response.ok) {
+                            throw new Error(data.error || `HTTP ошибка: ${response.status}`);
+                        }
+                        
                         if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
                            throw new Error('Получен неверный или пустой ответ от API.');
                         }
                         return data.candidates[0].content.parts[0].text;
+
                     } catch (error) {
                         if (retries > 0) {
                             console.warn(`Retrying... (${retries} left). Error: ${error.message}`);
                             await new Promise(res => setTimeout(res, delay));
-                            return this.callGemini(prompt, retries - 1, delay * 2);
+                            return this.callGeminiProxy(prompt, retries - 1, delay * 2);
                         } else {
                             throw error;
                         }
