@@ -110,7 +110,6 @@
                 </div>
                 <div class="flex-grow overflow-auto bg-[#2d2d2d]"><pre><code id="code-output" class="language-html text-sm p-4 block whitespace-pre-wrap font-mono"></code></pre></div>
             </div>
-            <!-- ИЗМЕНЕНИЕ: Кнопка обновления удалена -->
             <div id="preview-view" class="flex-grow hidden bg-white relative">
                 <iframe id="preview-iframe" class="w-full h-full border-0"></iframe>
             </div>
@@ -133,7 +132,7 @@
             
             <div class="bg-[var(--tg-secondary-bg)] p-4 rounded-xl space-y-3">
                 <h3 class="text-lg font-bold">Пригласите друзей</h3>
-                <p class="text-sm text-[var(--tg-hint)]">Пригласите друга и получите бонус! Вы получите **1 генерацию** за каждого нового пользователя и **10 генераций**, если он оформит подписку. Ваш друг получит **1 бонусную генерацию** сразу после перехода по ссылке.</p>
+                <p class="text-sm text-[var(--tg-hint)]">Пригласите друга и получите бонус! Вы получите 1 генерацию за каждого нового пользователя и 10 генераций, если он оформит подписку. Ваш друг получит 1 бонусную генерацию сразу после перехода по ссылке.</p>
                 <div class="flex items-center space-x-2">
                     <input id="referral-link-input" type="text" readonly class="w-full p-2 rounded-lg focus:outline-none bg-[var(--tg-bg)] text-sm">
                     <button id="copy-referral-link-button" class="p-2 rounded-lg bg-[var(--tg-button)] text-[var(--tg-button-text)] btn-transition flex-shrink-0"><svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg></button>
@@ -179,7 +178,10 @@
                 appName: 'aiyrf',
                 supabaseUrl: 'https://mhwzgpexajfqqtlgivfc.supabase.co',
                 supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1od3pncGV4YWpmcXF0bGdpdmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQwMzU1ODAsImV4cCI6MjA2OTYxMTU4MH0.jmmkJ2gsfRMVOo3KVTHYS2u8IIoBUH7D5ZemZowwpzE',
-                maxFreeGenerations: 5,
+                // ИЗМЕНЕНИЕ: Новые лимиты
+                maxDailyGenerations: 3,
+                maxMonthlyGenerations: 30,
+                maxDailyChats: 5,
                 tonRecipientAddress: 'UQA-NjtXmWz0-GFB59p2jSjdBXtq4H9qDo6-N2xvDCsC9NTL',
                 tonSubscriptionPrice: '5000000000'
             },
@@ -250,6 +252,7 @@
                 this.elements.subNavButtons = document.querySelectorAll('#creation-page .sub-nav-button');
             },
             
+            // ИЗМЕНЕНИЕ: Логика сброса лимитов
             dataManager: {
                 async loadInitialDataAndChats() {
                     const user = App.tg.initDataUnsafe.user;
@@ -269,23 +272,52 @@
                         profile = await this.createNewUserProfile(user);
                     }
 
-                    const todayStart = new Date().setHours(0, 0, 0, 0);
-                    if (!profile.daily_generations_last_reset || new Date(profile.daily_generations_last_reset).getTime() < todayStart) {
+                    // Логика сброса счетчиков
+                    const now = new Date();
+                    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+                    const currentMonth = now.getMonth();
+                    
+                    const updates = {};
+                    let needsUpdate = false;
+
+                    // Сброс дневных генераций
+                    const lastGenReset = profile.daily_generations_last_reset ? new Date(profile.daily_generations_last_reset).getTime() : 0;
+                    if (lastGenReset < todayStart) {
+                        updates.daily_generations_count = 0;
+                        updates.daily_generations_last_reset = now.toISOString();
+                        needsUpdate = true;
+                    }
+
+                    // Сброс дневных чатов
+                    const lastChatReset = profile.daily_chats_last_reset ? new Date(profile.daily_chats_last_reset).getTime() : 0;
+                    if (lastChatReset < todayStart) {
+                        updates.daily_chats_count = 0;
+                        updates.daily_chats_last_reset = now.toISOString();
+                        needsUpdate = true;
+                    }
+
+                    // Сброс месячных генераций
+                    const lastMonthlyResetMonth = profile.monthly_generations_last_reset ? new Date(profile.monthly_generations_last_reset).getMonth() : -1;
+                    if (lastMonthlyResetMonth !== currentMonth) {
+                        updates.monthly_generations_count = 0;
+                        updates.monthly_generations_last_reset = now.toISOString();
+                        needsUpdate = true;
+                    }
+                    
+                    if (needsUpdate) {
                         const { data: updatedProfile, error: updateError } = await App.supabase
                             .from('profiles')
-                            .update({ 
-                                daily_generations_count: 0, 
-                                daily_generations_last_reset: new Date().toISOString() 
-                            })
+                            .update(updates)
                             .eq('id', userId)
                             .select()
                             .single();
-                        if (updateError) console.error("Failed to reset daily generations:", updateError);
+                        if (updateError) console.error("Failed to reset limits:", updateError);
                         else profile = updatedProfile;
                     }
 
                     App.state.userProfile = profile;
 
+                    // Загрузка чатов (без изменений)
                     const { data: chats, error: chatsError } = await App.supabase
                         .from('chats')
                         .select('id, title, created_at')
@@ -296,7 +328,8 @@
                     App.state.chats = chats || [];
 
                     if (App.state.chats.length === 0) {
-                        const newChat = await this.createNewChatInDB(userId);
+                        // При создании первого чата не тратим лимит
+                        const newChat = await this.createNewChatInDB(userId, false); 
                         App.state.chats.unshift(newChat);
                     }
 
@@ -427,26 +460,37 @@
                     const profile = App.state.userProfile;
                     if (!profile) return;
 
-                    const { subscription_is_active, subscription_end_date, daily_generations_count, bonus_generations } = profile;
-                    const { maxFreeGenerations } = App.config;
+                    const { subscription_is_active, subscription_end_date } = profile;
                     const el = App.elements.subscriptionStatus;
 
                     if (subscription_is_active && new Date(subscription_end_date) > new Date()) {
                         el.innerHTML = `
                             <h3 class="text-lg font-bold text-green-500">PRO-доступ активен</h3>
-                            <p class="text-sm text-[var(--tg-text)]">Все возможности разблокированы. Спасибо за поддержку!</p>
+                            <p class="text-sm text-[var(--tg-text)]">Все лимиты сняты. Спасибо за поддержку!</p>
                             <p class="text-xs text-[var(--tg-hint)] mt-2">Истекает: ${new Date(subscription_end_date).toLocaleDateString()}</p>
                         `;
                     } else {
-                        const remaining = maxFreeGenerations - daily_generations_count;
+                        const { daily_generations_count, monthly_generations_count, daily_chats_count, bonus_generations } = profile;
+                        const { maxDailyGenerations, maxMonthlyGenerations, maxDailyChats } = App.config;
+                        
                         const priceInTon = parseInt(App.config.tonSubscriptionPrice) / 1_000_000_000;
                         const checkIcon = `<svg class="w-5 h-5 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>`;
 
                         el.innerHTML = `
-                            <div class="text-center mb-4">
-                                <p class="text-sm">Бесплатных генераций сегодня:</p>
-                                <p class="text-2xl font-bold">${remaining < 0 ? 0 : remaining} / ${maxFreeGenerations}</p>
-                                ${bonus_generations > 0 ? `<p class="text-sm text-blue-500 mt-1">Бонусных генераций: ${bonus_generations}</p>` : ''}
+                            <div class="grid grid-cols-2 gap-4 text-center mb-4">
+                                <div>
+                                    <p class="text-sm">Генераций сегодня:</p>
+                                    <p class="text-2xl font-bold">${maxDailyGenerations - daily_generations_count} / ${maxDailyGenerations}</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm">Новых чатов сегодня:</p>
+                                    <p class="text-2xl font-bold">${maxDailyChats - daily_chats_count} / ${maxDailyChats}</p>
+                                </div>
+                                <div class="col-span-2">
+                                    <p class="text-sm">Генераций в этом месяце:</p>
+                                    <p class="text-lg font-bold">${maxMonthlyGenerations - monthly_generations_count} / ${maxMonthlyGenerations}</p>
+                                    ${bonus_generations > 0 ? `<p class="text-sm text-blue-500 mt-1">Бонусных генераций: ${bonus_generations}</p>` : ''}
+                                </div>
                             </div>
                             
                             <div class="border-t border-[var(--tg-hint)] opacity-20 my-4"></div>
@@ -454,22 +498,10 @@
                             <div>
                                 <h3 class="text-lg font-bold text-center mb-3">Получите PRO-доступ</h3>
                                 <ul class="space-y-2 text-sm">
-                                    <li class="flex items-center space-x-3">
-                                        ${checkIcon}
-                                        <span><strong>Неограниченные</strong> генерации кода</span>
-                                    </li>
-                                    <li class="flex items-center space-x-3">
-                                        ${checkIcon}
-                                        <span>Доступ к самым <strong>продвинутым моделям ИИ</strong></span>
-                                    </li>
-                                    <li class="flex items-center space-x-3">
-                                        ${checkIcon}
-                                        <span><strong>Приоритетная</strong> обработка ваших запросов</span>
-                                    </li>
-                                    <li class="flex items-center space-x-3">
-                                        ${checkIcon}
-                                        <span>Поддержка и развитие проекта</span>
-                                    </li>
+                                    <li class="flex items-center space-x-3">${checkIcon}<span><strong>Безлимитные</strong> генерации и чаты</span></li>
+                                    <li class="flex items-center space-x-3">${checkIcon}<span>Доступ к самым <strong>продвинутым моделям ИИ</strong></span></li>
+                                    <li class="flex items-center space-x-3">${checkIcon}<span><strong>Приоритетная</strong> обработка запросов</span></li>
+                                    <li class="flex items-center space-x-3">${checkIcon}<span>Поддержка и развитие проекта</span></li>
                                 </ul>
                             </div>
 
@@ -680,12 +712,32 @@
                 }
             },
 
+            // ИЗМЕНЕНИЕ: Логика проверки лимита на создание чата
             chatManager: {
                 async createNewChat() {
-                    const userId = App.state.userProfile.id;
-                    const newChatInfo = await App.dataManager.createNewChatInDB(userId);
+                    const profile = App.state.userProfile;
+                    if (!profile.subscription_is_active && profile.daily_chats_count >= App.config.maxDailyChats) {
+                        App.ui.showPopup({
+                            title: 'Лимит на чаты',
+                            message: `Вы достигли дневного лимита (${App.config.maxDailyChats}) на создание новых чатов. Оформите PRO-подписку для снятия всех ограничений.`,
+                            buttons: [{ id: 'subscribe', type: 'default', text: 'Подписаться' }, { type: 'cancel' }]
+                        }, (buttonId) => {
+                            if (buttonId === 'subscribe') {
+                                App.ui.navigateToPage('profile-page');
+                                App.paymentManager.initiateSubscription();
+                            }
+                        });
+                        return;
+                    }
+
+                    const newChatInfo = await App.dataManager.createNewChatInDB(profile.id);
                     App.state.chats.unshift(newChatInfo);
                     await App.dataManager.loadActiveChat(newChatInfo.id);
+
+                    if (!profile.subscription_is_active) {
+                        await App.dataManager.updateUserProfile({ daily_chats_count: profile.daily_chats_count + 1 });
+                    }
+
                     App.ui.renderAll();
                     App.ui.closeHistoryModal();
                 },
@@ -853,6 +905,7 @@
                 }
             },
 
+            // ИЗМЕНЕНИЕ: Логика проверки всех лимитов на генерацию
             generationManager: {
                 async handleGeneration() {
                     if (App.state.isGenerating) return;
@@ -866,21 +919,17 @@
                     }
                     
                     const profile = App.state.userProfile;
-                    const hasFreeGenerations = profile.daily_generations_count < App.config.maxFreeGenerations;
                     const hasBonusGenerations = profile.bonus_generations > 0;
 
-                    if (!profile.subscription_is_active && !hasFreeGenerations && !hasBonusGenerations) {
-                        App.ui.showPopup({
-                            title: 'Лимит исчерпан',
-                            message: 'Вы использовали все бесплатные генерации. Оформите PRO подписку для неограниченного доступа!',
-                            buttons: [{ id: 'subscribe', type: 'default', text: 'Подписаться' }, { type: 'cancel' }]
-                        }, (buttonId) => {
-                            if (buttonId === 'subscribe') {
-                                App.ui.navigateToPage('profile-page');
-                                App.paymentManager.initiateSubscription();
-                            }
-                        });
-                        return;
+                    if (!profile.subscription_is_active && !hasBonusGenerations) {
+                        if (profile.daily_generations_count >= App.config.maxDailyGenerations) {
+                             this.showLimitPopup('Вы достигли дневного лимита на генерации.');
+                             return;
+                        }
+                        if (profile.monthly_generations_count >= App.config.maxMonthlyGenerations) {
+                            this.showLimitPopup('Вы достигли месячного лимита на генерации.');
+                            return;
+                        }
                     }
 
                     App.ui.toggleGenerationButton(true);
@@ -889,7 +938,10 @@
                         if (hasBonusGenerations) {
                             await App.dataManager.updateUserProfile({ bonus_generations: profile.bonus_generations - 1 });
                         } else {
-                            await App.dataManager.updateUserProfile({ daily_generations_count: profile.daily_generations_count + 1 });
+                            await App.dataManager.updateUserProfile({ 
+                                daily_generations_count: profile.daily_generations_count + 1,
+                                monthly_generations_count: profile.monthly_generations_count + 1 
+                            });
                         }
                     }
 
@@ -916,7 +968,6 @@
                         
                         await App.ui.typeCode(finalCode, App.elements.codeOutput);
 
-                        // ИЗМЕНЕНИЕ: Автоматически переключаемся на превью и обновляем его
                         App.elements.previewIframe.srcdoc = finalCode;
                         App.ui.toggleCodePreview('preview');
 
@@ -945,6 +996,18 @@
                     } finally {
                         App.ui.toggleGenerationButton(false);
                     }
+                },
+                showLimitPopup(message) {
+                    App.ui.showPopup({
+                        title: 'Лимит исчерпан',
+                        message: `${message} Оформите PRO-подписку для неограниченного доступа!`,
+                        buttons: [{ id: 'subscribe', type: 'default', text: 'Подписаться' }, { type: 'cancel' }]
+                    }, (buttonId) => {
+                        if (buttonId === 'subscribe') {
+                            App.ui.navigateToPage('profile-page');
+                            App.paymentManager.initiateSubscription();
+                        }
+                    });
                 }
             },
 
