@@ -1,1 +1,132 @@
+// Импортируем необходимые модули
+import express from 'express';
+import cors from 'cors';
+import { v4 as uuidv4 } from 'uuid';
+import { createClient } from '@supabase/supabase-js';
+
+// --- Конфигурация ---
+// Все секретные данные берутся из переменных окружения Vercel.
+// Это безопасный способ хранения ключей.
+const YOOKASSA_SHOP_ID = process.env.YOOKASSA_SHOP_ID;
+const YOOKASSA_SECRET_KEY = process.env.YOOKASSA_SECRET_KEY;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY; // Важно: это service_role key
+
+const YOOKASSA_API_URL = 'https://api.yookassa.ru/v3/payments';
+
+// --- Инициализация ---
+const app = express();
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+
+// --- Middleware ---
+// Разрешаем CORS, чтобы ваше приложение могло отправлять запросы.
+app.use(cors());
+// Включаем парсинг JSON-тела запросов.
+app.use(express.json());
+
+// --- Маршруты API ---
+// Создаем роутер, чтобы было удобнее. Все пути будут начинаться с /api/...
+const router = express.Router();
+
+// Маршрут для создания платежа: /api/create-payment
+router.post('/create-payment', async (req, res) => {
+    try {
+        const { userId, amount, description, botUsername, appName } = req.body;
+
+        if (!userId || !amount || !description || !botUsername || !appName) {
+            return res.status(400).json({ error: 'Отсутствуют обязательные поля' });
+        }
+        
+        const idempotenceKey = uuidv4();
+        const returnUrl = `https://t.me/${botUsername}/${appName}`;
+
+        const paymentData = {
+            amount: {
+                value: amount.toFixed(2),
+                currency: 'RUB'
+            },
+            confirmation: {
+                type: 'redirect',
+                return_url: returnUrl
+            },
+            capture: true,
+            description: description,
+            metadata: {
+                userId: userId
+            }
+        };
+
+        const authHeader = 'Basic ' + Buffer.from(`${YOOKASSA_SHOP_ID}:${YOOKASSA_SECRET_KEY}`).toString('base64');
+
+        const yookassaResponse = await fetch(YOOKASSA_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Idempotence-Key': idempotenceKey,
+                'Authorization': authHeader
+            },
+            body: JSON.stringify(paymentData)
+        });
+
+        const responseData = await yookassaResponse.json();
+
+        if (!yookassaResponse.ok) {
+            console.error('Ошибка от YooKassa:', responseData);
+            throw new Error(responseData.description || 'Не удалось создать платеж');
+        }
+
+        res.json({ confirmationUrl: responseData.confirmation.confirmation_url });
+
+    } catch (error) {
+        console.error('Ошибка в /create-payment:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Маршрут для вебхуков от YooKassa: /api/yookassa-webhook
+router.post('/yookassa-webhook', async (req, res) => {
+    try {
+        const notification = req.body;
+        console.log('Получен вебхук от YooKassa:', notification);
+
+        if (notification?.event === 'payment.succeeded' && notification?.object?.status === 'succeeded') {
+            const paymentObject = notification.object;
+            const userId = paymentObject.metadata.userId;
+
+            if (!userId) {
+                console.error('В метаданных платежа отсутствует userId!');
+                return res.status(200).send('OK, no userId');
+            }
+
+            const subscriptionEndDate = new Date();
+            subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + 1);
+
+            const { error } = await supabase
+                .from('profiles')
+                .update({
+                    subscription_is_active: true,
+                    subscription_end_date: subscriptionEndDate.toISOString(),
+                })
+                .eq('id', userId);
+
+            if (error) {
+                console.error(`Ошибка обновления профиля для пользователя ${userId}:`, error);
+            } else {
+                console.log(`Подписка для пользователя ${userId} успешно активирована.`);
+            }
+        }
+        
+        res.status(200).send('OK');
+
+    } catch (error) {
+        console.error('Ошибка в /yookassa-webhook:', error);
+        res.status(500).send('Internal Server Error');
+    }
+});
+
+// Подключаем роутер к основному приложению
+app.use('/api', router);
+
+// Экспортируем приложение для Vercel
+export default app;
 
