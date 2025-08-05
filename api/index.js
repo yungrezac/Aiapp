@@ -4,32 +4,44 @@ import cors from 'cors';
 import { v4 as uuidv4 } from 'uuid';
 import { createClient } from '@supabase/supabase-js';
 
-// --- Конфигурация ---
+// --- Конфигурация и Проверка ---
 // Все секретные данные берутся из переменных окружения Vercel.
-// Это безопасный способ хранения ключей.
-const YOOKASSA_SHOP_ID = process.env.YOOKASSA_SHOP_ID;
-const YOOKASSA_SECRET_KEY = process.env.YOOKASSA_SECRET_KEY;
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY; // Важно: это service_role key
+const {
+    YOOKASSA_SHOP_ID,
+    YOOKASSA_SECRET_KEY,
+    SUPABASE_URL,
+    SUPABASE_SERVICE_KEY
+} = process.env;
+
+// **ВАЖНАЯ ПРОВЕРКА**: Убедимся, что все переменные окружения загружены.
+if (!YOOKASSA_SHOP_ID || !YOOKASSA_SECRET_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+    console.error("КРИТИЧЕСКАЯ ОШИБКА: Одна или несколько переменных окружения не установлены!");
+    console.error("Проверьте настройки проекта на Vercel -> Settings -> Environment Variables.");
+    // Завершаем работу, если конфигурация неполная
+    // (Это не остановит сервер Vercel, но предотвратит выполнение кода с ошибками)
+}
 
 const YOOKASSA_API_URL = 'https://api.yookassa.ru/v3/payments';
 
 // --- Инициализация ---
 const app = express();
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+// Инициализируем Supabase только если ключи существуют
+const supabase = SUPABASE_URL && SUPABASE_SERVICE_KEY ? createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY) : null;
 
 // --- Middleware ---
-// Разрешаем CORS, чтобы ваше приложение могло отправлять запросы.
 app.use(cors());
-// Включаем парсинг JSON-тела запросов.
 app.use(express.json());
 
 // --- Маршруты API ---
-// Создаем роутер, чтобы было удобнее. Все пути будут начинаться с /api/...
 const router = express.Router();
 
 // Маршрут для создания платежа: /api/create-payment
 router.post('/create-payment', async (req, res) => {
+    // Дополнительная проверка, что все настроено перед обработкой запроса
+    if (!supabase || !YOOKASSA_SHOP_ID || !YOOKASSA_SECRET_KEY) {
+        return res.status(500).json({ error: "Сервер не сконфигурирован. Проверьте переменные окружения." });
+    }
+
     try {
         const { userId, amount, description, botUsername, appName } = req.body;
 
@@ -85,6 +97,10 @@ router.post('/create-payment', async (req, res) => {
 
 // Маршрут для вебхуков от YooKassa: /api/yookassa-webhook
 router.post('/yookassa-webhook', async (req, res) => {
+    if (!supabase) {
+        return res.status(500).json({ error: "Сервер не сконфигурирован." });
+    }
+
     try {
         const notification = req.body;
         console.log('Получен вебхук от YooKassa:', notification);
@@ -129,4 +145,3 @@ app.use('/api', router);
 
 // Экспортируем приложение для Vercel
 export default app;
-
