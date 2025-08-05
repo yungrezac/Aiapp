@@ -110,9 +110,9 @@
                 </div>
                 <div class="flex-grow overflow-auto bg-[#2d2d2d]"><pre><code id="code-output" class="language-html text-sm p-4 block whitespace-pre-wrap font-mono"></code></pre></div>
             </div>
+            <!-- ИЗМЕНЕНИЕ: Кнопка обновления удалена -->
             <div id="preview-view" class="flex-grow hidden bg-white relative">
                 <iframe id="preview-iframe" class="w-full h-full border-0"></iframe>
-                <button id="refresh-preview-button" class="absolute top-4 right-4 p-2 rounded-full bg-[var(--tg-button)] text-[var(--tg-button-text)] shadow-lg btn-transition" aria-label="Обновить превью"><svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h5M20 20v-5h-5M4 4l5 5M20 20l-5-5" /></svg></button>
             </div>
         </div>
 
@@ -174,14 +174,14 @@
     document.addEventListener('DOMContentLoaded', () => {
         const App = {
             config: {
-                // ИЗМЕНЕНИЕ: API-ключ Gemini удален из фронтенда
+                apiKey: 'AIzaSyBuXjShdZFvr76OKsl7FaL789Dxl3i6bgc',
                 botUsername: 'yr_dev_bot',
                 appName: 'aiyrf',
                 supabaseUrl: 'https://mhwzgpexajfqqtlgivfc.supabase.co',
                 supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1od3pncGV4YWpmcXF0bGdpdmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQwMzU1ODAsImV4cCI6MjA2OTYxMTU4MH0.jmmkJ2gsfRMVOo3KVTHYS2u8IIoBUH7D5ZemZowwpzE',
                 maxFreeGenerations: 5,
                 tonRecipientAddress: 'UQA-NjtXmWz0-GFB59p2jSjdBXtq4H9qDo6-N2xvDCsC9NTL',
-                tonSubscriptionPrice: '5000000000' // 5 TON в нанотонах
+                tonSubscriptionPrice: '5000000000'
             },
             state: {
                 userProfile: null,
@@ -233,7 +233,7 @@
                     'chat-page', 'creation-page', 'profile-page', 'chat-history', 'prompt-input', 
                     'generate-button', 'code-view', 'preview-view', 'code-output', 'preview-iframe', 
                     'copy-button', 'subscription-status', 'chat-list', 'chat-title',
-                    'history-button', 'page-new-chat-button', 'refresh-preview-button',
+                    'history-button', 'page-new-chat-button',
                     'history-modal-overlay', 'history-modal-panel',
                     'user-profile-card', 'user-avatar', 'user-fullname', 'user-username',
                     'copy-referral-link-button', 'referral-link-input', 'invite-friend-button',
@@ -674,12 +674,7 @@
                     App.elements.historyButton.addEventListener('click', () => App.ui.openHistoryModal());
                     App.elements.historyModalOverlay.addEventListener('click', () => App.ui.closeHistoryModal());
                     App.elements.pageNewChatButton.addEventListener('click', () => App.chatManager.createNewChat());
-                    App.elements.refreshPreviewButton.addEventListener('click', () => {
-                        const chat = App.state.activeChat;
-                        if (chat) App.elements.previewIframe.srcdoc = chat.generated_code;
-                        App.tg.HapticFeedback.notificationOccurred('success');
-                    });
-
+                    
                     App.elements.copyReferralLinkButton.addEventListener('click', () => App.referralManager.copyReferralLink());
                     App.elements.inviteFriendButton.addEventListener('click', () => App.referralManager.shareReferralLink());
                 }
@@ -912,18 +907,20 @@
 
                     try {
                         const systemPrompt = App.api.createCodeGenerationPrompt(prompt, chat.generated_code);
-                        // ИЗМЕНЕНИЕ: Вызываем нашу прокси-функцию
-                        const newCode = await App.api.callGeminiProxy(systemPrompt);
+                        const newCode = await App.api.callGemini(systemPrompt);
                         const codeMatch = newCode.match(/```(?:html|css|javascript|)\n([\s\S]*?)\n```/s);
                         const finalCode = codeMatch ? codeMatch[1] : newCode;
 
                         indicator.remove();
                         App.ui.navigateToPage('creation-page');
-                        App.ui.toggleCodePreview('code');
-
+                        
                         await App.ui.typeCode(finalCode, App.elements.codeOutput);
 
-                        const aiResponseText = 'Готово! Код обновлен.';
+                        // ИЗМЕНЕНИЕ: Автоматически переключаемся на превью и обновляем его
+                        App.elements.previewIframe.srcdoc = finalCode;
+                        App.ui.toggleCodePreview('preview');
+
+                        const aiResponseText = 'Готово! Код обновлен, вот превью.';
                         App.ui.addMessageToChat(aiResponseText, 'ai');
                         chat.messages.push({ sender: 'ai', text: aiResponseText });
                         
@@ -935,7 +932,12 @@
                     } catch (error) {
                         console.error('Generation Error:', error);
                         indicator.remove();
-                        let errorMessage = `Произошла ошибка: ${error.message}.`;
+                        let errorMessage;
+                        if (error.message.includes('User location is not supported')) {
+                            errorMessage = "Похоже YR://DEV не доступен в вашем регионе, попробуйте включить VPN и перезагрузить приложение";
+                        } else {
+                            errorMessage = `Произошла ошибка: ${error.message}. Убедитесь, что вы указали правильный API-ключ.`;
+                        }
                         App.ui.addMessageToChat(errorMessage, 'ai');
                         chat.messages.push({ sender: 'ai', text: errorMessage });
                         await App.dataManager.saveActiveChat();
@@ -946,7 +948,6 @@
                 }
             },
 
-            // ИЗМЕНЕНИЕ: Логика вызова API переписана
             api: {
                 createCodeGenerationPrompt(userPrompt, existingCode) {
                     const baseInstruction = `Твоя задача - быть экспертом по созданию html блоков, компонентов, приложений. Ты должен вернуть ТОЛЬКО HTML-код в одном блоке \`\`\`html ... \`\`\`. Без лишних слов, объяснений или комментариев вне кода. Код должен быть полным и самодостаточным (включая HTML, CSS в <style> и JS в <script>). Используй Tailwind CSS для стилизации.`;
@@ -954,33 +955,33 @@
                         ? `${baseInstruction}\nВот существующий код:\n\n${existingCode}\n\nЗапрос пользователя: "${userPrompt}".\nИзмени код и верни новую полную версию.`
                         : `${baseInstruction}\nЗапрос пользователя: "${userPrompt}".\nСоздай код с нуля.`;
                 },
-                async callGeminiProxy(prompt, retries = 3, delay = 1000) {
-                    // URL нашей серверной функции на Vercel
-                    const PROXY_URL = '/api/gemini-proxy';
-                    
+                async callGemini(prompt, retries = 3, delay = 1000) {
+                    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${App.config.apiKey}`;
+                    const payload = { contents: [{ parts: [{ text: prompt }] }] };
+
                     try {
-                        const response = await fetch(PROXY_URL, {
+                        const response = await fetch(API_URL, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ prompt: prompt })
+                            body: JSON.stringify(payload)
                         });
-
-                        const data = await response.json();
-
                         if (!response.ok) {
-                            throw new Error(data.error || `HTTP ошибка: ${response.status}`);
+                            if (response.status < 500 && response.status !== 429) {
+                                const errorData = await response.json();
+                                throw new Error(errorData.error?.message || `HTTP ошибка: ${response.status}`);
+                            }
+                            throw new Error(`Server error: ${response.status}`);
                         }
-                        
+                        const data = await response.json();
                         if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
                            throw new Error('Получен неверный или пустой ответ от API.');
                         }
                         return data.candidates[0].content.parts[0].text;
-
                     } catch (error) {
                         if (retries > 0) {
                             console.warn(`Retrying... (${retries} left). Error: ${error.message}`);
                             await new Promise(res => setTimeout(res, delay));
-                            return this.callGeminiProxy(prompt, retries - 1, delay * 2);
+                            return this.callGemini(prompt, retries - 1, delay * 2);
                         } else {
                             throw error;
                         }
