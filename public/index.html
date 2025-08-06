@@ -158,15 +158,16 @@
                 <h1 class="font-bold text-lg text-center">Инструменты</h1>
             </div>
             <div class="flex-shrink-0 flex border-b border-[var(--tg-secondary-bg)] bg-[var(--tg-bg)] overflow-x-auto">
+                <!-- FREE TOOLS -->
                 <button data-tool="json" class="tool-nav-button active flex-shrink-0 p-3 text-center text-[var(--tg-hint)] text-sm">JSON</button>
                 <button data-tool="base64" class="tool-nav-button flex-shrink-0 p-3 text-center text-[var(--tg-hint)] text-sm">Base64</button>
                 <button data-tool="url" class="tool-nav-button flex-shrink-0 p-3 text-center text-[var(--tg-hint)] text-sm">URL</button>
-                <button data-tool="jwt" class="tool-nav-button flex-shrink-0 p-3 text-center text-[var(--tg-hint)] text-sm">JWT</button>
-                <button data-tool="regex" class="tool-nav-button flex-shrink-0 p-3 text-center text-[var(--tg-hint)] text-sm">AI Regex</button>
-                <button data-tool="git" class="tool-nav-button flex-shrink-0 p-3 text-center text-[var(--tg-hint)] text-sm">AI Git</button>
-                <button data-tool="hash" class="tool-nav-button flex-shrink-0 p-3 text-center text-[var(--tg-hint)] text-sm">Hash</button>
-                <button data-tool="color" class="tool-nav-button flex-shrink-0 p-3 text-center text-[var(--tg-hint)] text-sm">Color</button>
                 <!-- PRO TOOLS -->
+                <button data-tool="jwt" data-pro="true" class="tool-nav-button flex-shrink-0 p-3 text-center text-[var(--tg-hint)] text-sm items-center">JWT</button>
+                <button data-tool="regex" data-pro="true" class="tool-nav-button flex-shrink-0 p-3 text-center text-[var(--tg-hint)] text-sm items-center">AI Regex</button>
+                <button data-tool="git" data-pro="true" class="tool-nav-button flex-shrink-0 p-3 text-center text-[var(--tg-hint)] text-sm items-center">AI Git</button>
+                <button data-tool="hash" data-pro="true" class="tool-nav-button flex-shrink-0 p-3 text-center text-[var(--tg-hint)] text-sm items-center">Hash</button>
+                <button data-tool="color" data-pro="true" class="tool-nav-button flex-shrink-0 p-3 text-center text-[var(--tg-hint)] text-sm items-center">Color</button>
                 <button data-tool="image-generator" data-pro="true" class="tool-nav-button flex-shrink-0 p-3 text-center text-[var(--tg-hint)] text-sm items-center">AI Изображения</button>
                 <button data-tool="code-doctor" data-pro="true" class="tool-nav-button flex-shrink-0 p-3 text-center text-[var(--tg-hint)] text-sm items-center">AI Code Doctor</button>
             </div>
@@ -203,14 +204,14 @@
                 </div>
                 <!-- JWT Decoder Tool -->
                 <div id="tool-jwt" class="tool-content">
-                    <h2 class="text-xl font-semibold mb-2">JWT Декодер</h2>
+                    <h2 class="text-xl font-semibold mb-2 flex items-center">JWT Декодер<span class="pro-badge">PRO</span></h2>
                     <textarea id="jwt-input" class="w-full h-32 p-2 rounded-lg bg-[var(--tg-secondary-bg)] focus:outline-none font-mono text-sm" placeholder="Вставьте ваш JWT сюда..."></textarea>
                     <button id="jwt-decode-btn" class="w-full mt-2 bg-[var(--tg-button)] text-[var(--tg-button-text)] py-2 rounded-lg btn-transition">Декодировать</button>
                     <div id="jwt-output" class="mt-4 space-y-4"></div>
                 </div>
                 <!-- AI Regex Generator Tool -->
                 <div id="tool-regex" class="tool-content">
-                    <h2 class="text-xl font-semibold mb-2">AI Генератор Regex</h2>
+                    <h2 class="text-xl font-semibold mb-2 flex items-center">AI Генератор Regex<span class="pro-badge">PRO</span></h2>
                     <textarea id="regex-prompt" class="w-full h-24 p-2 rounded-lg bg-[var(--tg-secondary-bg)] focus:outline-none text-sm" placeholder="Опишите, что должно делать регулярное выражение. Например: 'проверить, что строка является email адресом'"></textarea>
                     <button id="regex-generate-btn" class="w-full mt-2 bg-[var(--tg-button)] text-[var(--tg-button-text)] py-2 rounded-lg btn-transition flex items-center justify-center">Сгенерировать</button>
                     <div id="regex-output-container" class="mt-4 hidden">
@@ -224,7 +225,7 @@
                 </div>
                 <!-- AI Git Command Generator Tool -->
                 <div id="tool-git" class="tool-content">
-                    <h2 class="text-xl font-semibold mb-2">AI Генератор Git Команд</h2>
+                    <h2 class="text-xl font-semibold mb-2 flex items-center">AI Генератор Git Команд<span class="pro-badge">PRO</span></h2>
                     <textarea id="git-prompt" class="w-full h-24 p-2 rounded-lg bg-[var(--tg-secondary-bg)] focus:outline-none text-sm" placeholder="Опишите, что вы хотите сделать с Git. Например: 'откатить последний коммит, но оставить изменения в файлах'"></textarea>
                     <button id="git-generate-btn" class="w-full mt-2 bg-[var(--tg-button)] text-[var(--tg-button-text)] py-2 rounded-lg btn-transition flex items-center justify-center">Сгенерировать</button>
                     <div id="git-output-container" class="mt-4 hidden">
@@ -234,7 +235,7 @@
                 </div>
                 <!-- Hash Generator Tool -->
                 <div id="tool-hash" class="tool-content">
-                    <h2 class="text-xl font-semibold mb-2">Генератор Хешей</h2>
+                    <h2 class="text-xl font-semibold mb-2 flex items-center">Генератор Хешей<span class="pro-badge">PRO</span></h2>
                     <textarea id="hash-input" class="w-full h-32 p-2 rounded-lg bg-[var(--tg-secondary-bg)] focus:outline-none font-mono text-sm" placeholder="Введите строку для хеширования..."></textarea>
                     <div id="hash-output" class="mt-4 space-y-2">
                         <div>
@@ -249,7 +250,7 @@
                 </div>
                 <!-- Color Converter Tool -->
                 <div id="tool-color" class="tool-content">
-                    <h2 class="text-xl font-semibold mb-2">Конвертер Цветов</h2>
+                    <h2 class="text-xl font-semibold mb-2 flex items-center">Конвертер Цветов<span class="pro-badge">PRO</span></h2>
                     <div class="p-4 rounded-lg bg-[var(--tg-secondary-bg)] space-y-4">
                         <input type="color" id="color-picker" value="#007aff">
                         <div class="space-y-2">
@@ -366,7 +367,7 @@
     document.addEventListener('DOMContentLoaded', () => {
         const App = {
             config: {
-                apiKey: 'AIzaSyAg2oUJsSrbo2N9d4S5A0PVUuY9NEcXXRo', // ВАЖНО: Замените на ваш API ключ Gemini
+                apiKey: 'YOUR_GEMINI_API_KEY', // ВАЖНО: Замените на ваш API ключ Gemini
                 botUsername: 'yr_dev_bot',
                 appName: 'aiyrf',
                 supabaseUrl: 'https://mhwzgpexajfqqtlgivfc.supabase.co',
@@ -376,8 +377,8 @@
                 maxDailyChats: 5,
                 tonRecipientAddress: 'UQA-NjtXmWz0-GFB59p2jSjdBXtq4H9qDo6-N2xvDCsC9NTL',
                 tonSubscriptionPrice: '5000000000', // 5 TON in nanoTONs
-                proModelName: 'gemini-2.5-pro',
-                freeModelName: 'gemini-2.5-flash',
+                proModelName: 'gemini-1.5-pro-latest',
+                freeModelName: 'gemini-1.5-flash-latest',
                 imageModelName: 'imagen-3.0-generate-002'
             },
             state: {
@@ -705,10 +706,10 @@
                                 <h3 class="text-lg font-bold text-center mb-3">Получите PRO-доступ</h3>
                                 <ul class="space-y-2 text-sm">
                                     <li class="flex items-center space-x-3">${checkIcon}<span><strong>Безлимитные</strong> генерации и чаты</span></li>
-                                    <li class="flex items-center space-x-3">${proIcon}<span>Доступ к модели <strong>YR/AI PRO</strong></span></li>
+                                    <li class="flex items-center space-x-3">${proIcon}<span>Доступ к модели <strong>Gemini 1.5 Pro</strong></span></li>
                                     <li class="flex items-center space-x-3">${proIcon}<span>Новый инструмент: <strong>AI Генератор Изображений</strong></span></li>
                                     <li class="flex items-center space-x-3">${proIcon}<span>Новый инструмент: <strong>AI Анализатор Кода</strong></span></li>
-                                    <li class="flex items-center space-x-3">${checkIcon}<span>Быстрая обработка запросов</span></li>
+                                    <li class="flex items-center space-x-3">${checkIcon}<span>Приоритетная обработка запросов</span></li>
                                     <li class="flex items-center space-x-3">${checkIcon}<span>Поддержка и развитие проекта</span></li>
                                 </ul>
                             </div>
@@ -1284,7 +1285,7 @@
                 switchTool(toolName) {
                     const button = document.querySelector(`.tool-nav-button[data-tool="${toolName}"]`);
                     if (button.dataset.pro === 'true' && !App.state.userProfile.subscription_is_active) {
-                        App.generationManager.showLimitPopup(`Инструмент "${button.textContent.trim()}" доступен только для PRO-пользователей.`);
+                        App.generationManager.showLimitPopup(`Инструмент "${button.textContent.trim().replace('PRO','').trim()}" доступен только для PRO-пользователей.`);
                         return;
                     }
 
