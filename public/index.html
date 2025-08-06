@@ -51,14 +51,13 @@
         .ai-bubble { background-color: var(--tg-secondary-bg); color: var(--tg-text); align-self: flex-start; border-bottom-left-radius: 5px; }
         .nav-button.active { color: var(--tg-button); }
         .sub-nav-button.active { border-bottom: 2px solid var(--tg-button); color: var(--tg-button); font-weight: 600; }
-        /* НОВЫЙ СТИЛЬ: для кнопок навигации инструментов */
         .tool-nav-button.active { border-bottom: 2px solid var(--tg-button); color: var(--tg-button); font-weight: 600; }
         .btn-transition { transition: background-color 0.2s, opacity 0.2s, transform 0.1s; }
         .btn-transition:active { transform: scale(0.95); }
         .loader {
             width: 18px;
             height: 18px;
-            border: 2px solid var(--tg-text);
+            border: 2px solid currentColor;
             border-bottom-color: transparent;
             border-radius: 50%;
             display: inline-block;
@@ -74,9 +73,21 @@
         #history-modal-overlay.active { opacity: 1; visibility: visible; }
         #history-modal-panel { position: fixed; left: 0; right: 0; bottom: 0; height: 75vh; background-color: var(--tg-bg); border-top-left-radius: 1.5rem; border-top-right-radius: 1.5rem; transform: translateY(100%); transition: transform 0.3s ease-in-out; z-index: 50; display: flex; flex-direction: column; padding: 1rem; box-shadow: 0 -10px 25px -5px rgba(0,0,0,0.1), 0 -8px 10px -6px rgba(0,0,0,0.1); }
         #history-modal-panel.active { transform: translateY(0); }
-        /* НОВЫЙ СТИЛЬ: для контента инструментов */
         .tool-content { display: none; }
         .tool-content.active { display: block; animation: fadeIn 0.3s; }
+        /* Стили для color picker */
+        #color-picker {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 40px;
+            border: none;
+            cursor: pointer;
+            background-color: transparent;
+        }
+        #color-picker::-webkit-color-swatch-wrapper { padding: 0; }
+        #color-picker::-webkit-color-swatch { border: 1px solid var(--tg-hint); border-radius: 0.5rem; }
     </style>
 </head>
 <body class="flex flex-col h-screen">
@@ -120,7 +131,7 @@
             </div>
         </div>
 
-        <!-- НОВАЯ СТРАНИЦА: ИНСТРУМЕНТЫ -->
+        <!-- СТРАНИЦА 3: ИНСТРУМЕНТЫ -->
         <div id="tools-page" class="page flex-col h-full">
             <div class="flex-shrink-0 p-3 border-b border-[var(--tg-secondary-bg)] bg-[var(--tg-bg)]">
                 <h1 class="font-bold text-lg text-center">Инструменты</h1>
@@ -129,6 +140,11 @@
                 <button data-tool="json" class="tool-nav-button active flex-shrink-0 p-3 text-center text-[var(--tg-hint)] text-sm">JSON</button>
                 <button data-tool="base64" class="tool-nav-button flex-shrink-0 p-3 text-center text-[var(--tg-hint)] text-sm">Base64</button>
                 <button data-tool="url" class="tool-nav-button flex-shrink-0 p-3 text-center text-[var(--tg-hint)] text-sm">URL</button>
+                <button data-tool="jwt" class="tool-nav-button flex-shrink-0 p-3 text-center text-[var(--tg-hint)] text-sm">JWT</button>
+                <button data-tool="regex" class="tool-nav-button flex-shrink-0 p-3 text-center text-[var(--tg-hint)] text-sm">AI Regex</button>
+                <button data-tool="git" class="tool-nav-button flex-shrink-0 p-3 text-center text-[var(--tg-hint)] text-sm">AI Git</button>
+                <button data-tool="hash" class="tool-nav-button flex-shrink-0 p-3 text-center text-[var(--tg-hint)] text-sm">Hash</button>
+                <button data-tool="color" class="tool-nav-button flex-shrink-0 p-3 text-center text-[var(--tg-hint)] text-sm">Color</button>
             </div>
             <div class="flex-grow p-4 overflow-y-auto space-y-4">
                 <!-- JSON Formatter Tool -->
@@ -161,10 +177,77 @@
                     </div>
                     <textarea id="url-output" readonly class="w-full h-32 p-2 mt-4 rounded-lg bg-[var(--tg-secondary-bg)] focus:outline-none font-mono text-sm" placeholder="Результат..."></textarea>
                 </div>
+                <!-- JWT Decoder Tool -->
+                <div id="tool-jwt" class="tool-content">
+                    <h2 class="text-xl font-semibold mb-2">JWT Декодер</h2>
+                    <textarea id="jwt-input" class="w-full h-32 p-2 rounded-lg bg-[var(--tg-secondary-bg)] focus:outline-none font-mono text-sm" placeholder="Вставьте ваш JWT сюда..."></textarea>
+                    <button id="jwt-decode-btn" class="w-full mt-2 bg-[var(--tg-button)] text-[var(--tg-button-text)] py-2 rounded-lg btn-transition">Декодировать</button>
+                    <div id="jwt-output" class="mt-4 space-y-4"></div>
+                </div>
+                <!-- AI Regex Generator Tool -->
+                <div id="tool-regex" class="tool-content">
+                    <h2 class="text-xl font-semibold mb-2">AI Генератор Regex</h2>
+                    <textarea id="regex-prompt" class="w-full h-24 p-2 rounded-lg bg-[var(--tg-secondary-bg)] focus:outline-none text-sm" placeholder="Опишите, что должно делать регулярное выражение. Например: 'проверить, что строка является email адресом'"></textarea>
+                    <button id="regex-generate-btn" class="w-full mt-2 bg-[var(--tg-button)] text-[var(--tg-button-text)] py-2 rounded-lg btn-transition flex items-center justify-center">Сгенерировать</button>
+                    <div id="regex-output-container" class="mt-4 hidden">
+                        <h3 class="font-semibold">Результат:</h3>
+                        <pre id="regex-output" class="p-2 rounded-lg bg-[var(--tg-secondary-bg)] text-sm whitespace-pre-wrap font-mono"></pre>
+                        <h3 class="font-semibold mt-4">Тестирование:</h3>
+                        <textarea id="regex-test-string" class="w-full p-2 mt-2 rounded-lg bg-[var(--tg-secondary-bg)] focus:outline-none text-sm" placeholder="Строка для теста..."></textarea>
+                        <button id="regex-test-btn" class="w-full mt-2 bg-green-500 text-white py-2 rounded-lg btn-transition">Тестировать</button>
+                        <div id="regex-test-result" class="mt-2 text-sm"></div>
+                    </div>
+                </div>
+                <!-- AI Git Command Generator Tool -->
+                <div id="tool-git" class="tool-content">
+                    <h2 class="text-xl font-semibold mb-2">AI Генератор Git Команд</h2>
+                    <textarea id="git-prompt" class="w-full h-24 p-2 rounded-lg bg-[var(--tg-secondary-bg)] focus:outline-none text-sm" placeholder="Опишите, что вы хотите сделать с Git. Например: 'откатить последний коммит, но оставить изменения в файлах'"></textarea>
+                    <button id="git-generate-btn" class="w-full mt-2 bg-[var(--tg-button)] text-[var(--tg-button-text)] py-2 rounded-lg btn-transition flex items-center justify-center">Сгенерировать</button>
+                    <div id="git-output-container" class="mt-4 hidden">
+                        <h3 class="font-semibold">Рекомендуемая команда:</h3>
+                        <pre id="git-output" class="p-3 rounded-lg bg-gray-800 text-white text-sm whitespace-pre-wrap font-mono relative"><button id="git-copy-btn" class="absolute top-2 right-2 bg-gray-600 hover:bg-gray-500 p-1 rounded-md text-xs">Копировать</button><code></code></pre>
+                    </div>
+                </div>
+                <!-- Hash Generator Tool -->
+                <div id="tool-hash" class="tool-content">
+                    <h2 class="text-xl font-semibold mb-2">Генератор Хешей</h2>
+                    <textarea id="hash-input" class="w-full h-32 p-2 rounded-lg bg-[var(--tg-secondary-bg)] focus:outline-none font-mono text-sm" placeholder="Введите строку для хеширования..."></textarea>
+                    <div id="hash-output" class="mt-4 space-y-2">
+                        <div>
+                            <label class="font-semibold text-sm">MD5:</label>
+                            <pre id="hash-md5" class="p-2 rounded-lg bg-[var(--tg-secondary-bg)] text-sm whitespace-pre-wrap font-mono break-all"></pre>
+                        </div>
+                        <div>
+                            <label class="font-semibold text-sm">SHA-256:</label>
+                            <pre id="hash-sha256" class="p-2 rounded-lg bg-[var(--tg-secondary-bg)] text-sm whitespace-pre-wrap font-mono break-all"></pre>
+                        </div>
+                    </div>
+                </div>
+                <!-- Color Converter Tool -->
+                <div id="tool-color" class="tool-content">
+                    <h2 class="text-xl font-semibold mb-2">Конвертер Цветов</h2>
+                    <div class="p-4 rounded-lg bg-[var(--tg-secondary-bg)] space-y-4">
+                        <input type="color" id="color-picker" value="#007aff">
+                        <div class="space-y-2">
+                            <div>
+                                <label for="color-hex" class="font-semibold text-sm">HEX:</label>
+                                <input type="text" id="color-hex" class="w-full p-2 mt-1 rounded-lg bg-[var(--tg-bg)] focus:outline-none font-mono text-sm">
+                            </div>
+                            <div>
+                                <label for="color-rgb" class="font-semibold text-sm">RGB:</label>
+                                <input type="text" id="color-rgb" class="w-full p-2 mt-1 rounded-lg bg-[var(--tg-bg)] focus:outline-none font-mono text-sm">
+                            </div>
+                            <div>
+                                <label for="color-hsl" class="font-semibold text-sm">HSL:</label>
+                                <input type="text" id="color-hsl" class="w-full p-2 mt-1 rounded-lg bg-[var(--tg-bg)] focus:outline-none font-mono text-sm">
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- СТРАНИЦА 3: ПРОФИЛЬ -->
+        <!-- СТРАНИЦА 4: ПРОФИЛЬ -->
         <div id="profile-page" class="page p-4 overflow-y-auto flex-col h-full space-y-4">
             <div id="user-profile-card" class="flex items-center justify-between space-x-4 p-4 bg-[var(--tg-secondary-bg)] rounded-xl">
                 <div class="flex items-center space-x-4 min-w-0">
@@ -204,7 +287,6 @@
     <footer class="flex-shrink-0 h-20 bg-[var(--tg-bg)] border-t border-[var(--tg-secondary-bg)] flex justify-around items-center">
         <button data-page="chat-page" class="nav-button active flex flex-col items-center justify-center p-2 h-full" aria-label="Чат"><svg class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg><span class="text-xs">Чат</span></button>
         <button data-page="creation-page" class="nav-button flex flex-col items-center justify-center p-2 h-full" aria-label="Создание"><svg class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg><span class="text-xs">Создание</span></button>
-        <!-- НОВАЯ КНОПКА: Инструменты -->
         <button data-page="tools-page" class="nav-button flex flex-col items-center justify-center p-2 h-full" aria-label="Инструменты">
             <svg class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -225,6 +307,8 @@
     <!-- Подключение Prism.js JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+    <!-- Подключение MD5 (необходимо для хеширования, т.к. SubtleCrypto его не поддерживает) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/blueimp-md5/2.19.0/js/md5.min.js"></script>
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
@@ -247,6 +331,7 @@
                 activeChat: null,
                 myReferrals: [],
                 isGenerating: false,
+                isColorUpdating: false // Флаг для предотвращения рекурсивных обновлений цвета
             },
             elements: {},
             tg: window.Telegram.WebApp,
@@ -267,7 +352,7 @@
                     }
 
                     this.tonManager.init();
-                    this.toolsManager.init(); // Инициализация менеджера инструментов
+                    this.toolsManager.init();
 
                     this.elements.loaderMessage.textContent = 'Загрузка данных...';
                     await this.dataManager.loadInitialDataAndChats();
@@ -289,7 +374,7 @@
 
             cacheDOMElements() {
                 const ids = [
-                    'chat-page', 'creation-page', 'profile-page', 'tools-page', // Добавлена tools-page
+                    'chat-page', 'creation-page', 'profile-page', 'tools-page',
                     'chat-history', 'prompt-input', 
                     'generate-button', 'code-view', 'preview-view', 'code-output', 'preview-iframe', 
                     'copy-button', 'subscription-status', 'chat-list', 'chat-title',
@@ -300,10 +385,14 @@
                     'referral-list-section', 'referral-list', 'referral-count',
                     'global-loader', 'loader-message',
                     'ton-connect-container',
-                    // Новые элементы для инструментов
                     'tool-json', 'json-input', 'json-format-btn', 'json-clear-btn', 'json-output',
                     'tool-base64', 'base64-input', 'base64-encode-btn', 'base64-decode-btn', 'base64-output',
-                    'tool-url', 'url-input', 'url-encode-btn', 'url-decode-btn', 'url-output'
+                    'tool-url', 'url-input', 'url-encode-btn', 'url-decode-btn', 'url-output',
+                    'tool-jwt', 'jwt-input', 'jwt-decode-btn', 'jwt-output',
+                    'tool-regex', 'regex-prompt', 'regex-generate-btn', 'regex-output-container', 'regex-output', 'regex-test-string', 'regex-test-btn', 'regex-test-result',
+                    'tool-git', 'git-prompt', 'git-generate-btn', 'git-output-container', 'git-output', 'git-copy-btn',
+                    'tool-hash', 'hash-input', 'hash-output', 'hash-md5', 'hash-sha256',
+                    'tool-color', 'color-picker', 'color-hex', 'color-rgb', 'color-hsl'
                 ];
                 ids.forEach(id => {
                     const camelCaseId = id.replace(/-(\w)/g, (_, c) => c.toUpperCase());
@@ -312,10 +401,11 @@
                 this.elements.pages = document.querySelectorAll('.page');
                 this.elements.navButtons = document.querySelectorAll('.nav-button');
                 this.elements.subNavButtons = document.querySelectorAll('#creation-page .sub-nav-button');
-                this.elements.toolNavButtons = document.querySelectorAll('.tool-nav-button'); // Новые кнопки
-                this.elements.toolContents = document.querySelectorAll('.tool-content'); // Новый контент
+                this.elements.toolNavButtons = document.querySelectorAll('.tool-nav-button');
+                this.elements.toolContents = document.querySelectorAll('.tool-content');
             },
             
+            // ... (dataManager, ui, eventManager, etc. - без изменений)
             dataManager: {
                 async loadInitialDataAndChats() {
                     const user = App.tg.initDataUnsafe.user;
@@ -660,7 +750,7 @@
                     messageDiv.className = `chat-bubble ${sender}-bubble flex items-center`;
                     
                     if (isTyping) {
-                        messageDiv.innerHTML = `<span class="loader mr-2"></span><span>${text}</span>`;
+                        messageDiv.innerHTML = `<span class="loader"></span><span class="ml-2">${text}</span>`;
                         messageDiv.id = 'typing-indicator';
                     } else {
                         const textNode = document.createTextNode(text);
@@ -797,24 +887,24 @@
                     App.ui.renderAll();
                     App.ui.closeHistoryModal();
                 },
-                copyCode() {
-                    const code = App.state.activeChat?.generated_code;
-                    if (!code) return;
+                copyCode(textToCopy) {
+                    const text = textToCopy || App.state.activeChat?.generated_code;
+                    if (!text) return;
                     const textarea = document.createElement('textarea');
-                    textarea.value = code;
+                    textarea.value = text;
                     document.body.appendChild(textarea);
                     textarea.select();
                     try {
                         document.execCommand('copy');
                         App.tg.HapticFeedback.notificationOccurred('success');
-                        const originalText = App.elements.copyButton.textContent;
-                        App.elements.copyButton.textContent = 'Скопировано!';
-                        setTimeout(() => { App.elements.copyButton.textContent = originalText; }, 2000);
+                        return true;
                     } catch (err) {
                         App.tg.HapticFeedback.notificationOccurred('error');
-                        App.ui.showPopup({ title: 'Ошибка', message: 'Не удалось скопировать код.' });
+                        App.ui.showPopup({ title: 'Ошибка', message: 'Не удалось скопировать.' });
+                        return false;
+                    } finally {
+                        document.body.removeChild(textarea);
                     }
-                    document.body.removeChild(textarea);
                 }
             },
             
@@ -870,19 +960,9 @@
                 },
                 copyReferralLink() {
                     const link = App.elements.referralLinkInput.value;
-                    const textarea = document.createElement('textarea');
-                    textarea.value = link;
-                    document.body.appendChild(textarea);
-                    textarea.select();
-                    try {
-                        document.execCommand('copy');
-                        App.tg.HapticFeedback.notificationOccurred('success');
+                    if (App.chatManager.copyCode(link)) {
                         App.ui.showPopup({ title: 'Успешно', message: 'Реферальная ссылка скопирована!' });
-                    } catch (err) {
-                        App.tg.HapticFeedback.notificationOccurred('error');
-                        App.ui.showPopup({ title: 'Ошибка', message: 'Не удалось скопировать ссылку.' });
                     }
-                    document.body.removeChild(textarea);
                 },
                 shareReferralLink() {
                     const link = App.elements.referralLinkInput.value;
@@ -1066,25 +1146,49 @@
                 }
             },
 
-            // НОВЫЙ МОДУЛЬ: Менеджер инструментов
             toolsManager: {
                 init() {
-                    // Переключение между инструментами
                     App.elements.toolNavButtons.forEach(button => {
                         button.addEventListener('click', () => this.switchTool(button.dataset.tool));
                     });
 
-                    // JSON Инструмент
+                    // JSON
                     App.elements.jsonFormatBtn.addEventListener('click', () => this.formatJSON());
                     App.elements.jsonClearBtn.addEventListener('click', () => this.clearJSON());
 
-                    // Base64 Инструмент
+                    // Base64
                     App.elements.base64EncodeBtn.addEventListener('click', () => this.encodeBase64());
                     App.elements.base64DecodeBtn.addEventListener('click', () => this.decodeBase64());
 
-                    // URL Инструмент
+                    // URL
                     App.elements.urlEncodeBtn.addEventListener('click', () => this.encodeURL());
                     App.elements.urlDecodeBtn.addEventListener('click', () => this.decodeURL());
+                    
+                    // JWT
+                    App.elements.jwtDecodeBtn.addEventListener('click', () => this.decodeJWT());
+
+                    // Regex
+                    App.elements.regexGenerateBtn.addEventListener('click', () => this.generateRegex());
+                    App.elements.regexTestBtn.addEventListener('click', () => this.testRegex());
+                    
+                    // Git
+                    App.elements.gitGenerateBtn.addEventListener('click', () => this.generateGitCommand());
+                    App.elements.gitCopyBtn.addEventListener('click', () => {
+                        const code = App.elements.gitOutput.querySelector('code').textContent;
+                        if(App.chatManager.copyCode(code)) {
+                           App.elements.gitCopyBtn.textContent = 'OK!';
+                           setTimeout(() => { App.elements.gitCopyBtn.textContent = 'Копировать'; }, 1500);
+                        }
+                    });
+
+                    // Hash
+                    App.elements.hashInput.addEventListener('input', () => this.calculateHashes());
+
+                    // Color
+                    ['color-picker', 'color-hex', 'color-rgb', 'color-hsl'].forEach(id => {
+                        App.elements[id.replace(/-(\w)/g, (_, c) => c.toUpperCase())].addEventListener('input', (e) => this.updateColors(e.target.id));
+                    });
+                    this.updateColors('color-picker'); // Initial setup
                 },
 
                 switchTool(toolName) {
@@ -1144,8 +1248,269 @@
                     } catch (e) {
                         App.elements.urlOutput.value = `Ошибка декодирования: ${e.message}`;
                     }
+                },
+                
+                decodeJWT() {
+                    const token = App.elements.jwtInput.value.trim();
+                    const outputEl = App.elements.jwtOutput;
+                    outputEl.innerHTML = '';
+
+                    if (!token) {
+                        outputEl.innerHTML = `<p class="text-red-500">Ошибка: Поле ввода пустое.</p>`;
+                        return;
+                    }
+
+                    try {
+                        const [headerB64, payloadB64, signature] = token.split('.');
+                        if (!headerB64 || !payloadB64 || !signature) {
+                            throw new Error('Неверная структура JWT.');
+                        }
+
+                        const header = JSON.parse(atob(headerB64.replace(/-/g, '+').replace(/_/g, '/')));
+                        const payload = JSON.parse(atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/')));
+
+                        outputEl.innerHTML = `
+                            <div>
+                                <h3 class="font-semibold text-pink-400">Header:</h3>
+                                <pre class="p-2 mt-1 rounded-lg bg-[var(--tg-secondary-bg)] text-sm whitespace-pre-wrap font-mono">${JSON.stringify(header, null, 2)}</pre>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-purple-400">Payload:</h3>
+                                <pre class="p-2 mt-1 rounded-lg bg-[var(--tg-secondary-bg)] text-sm whitespace-pre-wrap font-mono">${JSON.stringify(payload, null, 2)}</pre>
+                            </div>
+                             <div>
+                                <h3 class="font-semibold text-cyan-400">Signature:</h3>
+                                <div class="p-2 mt-1 rounded-lg bg-[var(--tg-secondary-bg)] text-sm whitespace-pre-wrap font-mono break-all">${signature}</div>
+                            </div>
+                        `;
+                    } catch (e) {
+                        outputEl.innerHTML = `<p class="text-red-500">Ошибка декодирования: ${e.message}</p>`;
+                    }
+                },
+
+                async generateRegex() {
+                    const prompt = App.elements.regexPrompt.value.trim();
+                    if (!prompt) {
+                        App.ui.showPopup({title: 'Ошибка', message: 'Пожалуйста, опишите, что должно делать регулярное выражение.'});
+                        return;
+                    }
+                    
+                    const btn = App.elements.regexGenerateBtn;
+                    const originalText = btn.innerHTML;
+                    btn.innerHTML = `<span class="loader"></span><span class="ml-2">Генерация...</span>`;
+                    btn.disabled = true;
+
+                    try {
+                        const systemPrompt = App.api.createRegexGenerationPrompt(prompt);
+                        const response = await App.api.callGemini(systemPrompt);
+                        
+                        const regexMatch = response.match(/\/(.*?)\/([gimyus]*)/) || response.match(/```(?:regex|)\n\/(.*?)\/([gimyus]*)\n```/s) || response.match(/```(?:regex|)\n(.*?)\n```/s);
+
+                        if (!regexMatch || !regexMatch[1]) {
+                           throw new Error("Не удалось извлечь регулярное выражение из ответа ИИ.");
+                        }
+                        
+                        const regexPattern = regexMatch[1];
+                        
+                        App.elements.regexOutput.textContent = `/${regexPattern}/`;
+                        App.elements.regexOutputContainer.classList.remove('hidden');
+                        App.elements.regexTestResult.innerHTML = '';
+                        
+                    } catch (error) {
+                        console.error('Regex Generation Error:', error);
+                        App.ui.showPopup({title: 'Ошибка генерации', message: error.message});
+                    } finally {
+                        btn.innerHTML = 'Сгенерировать';
+                        btn.disabled = false;
+                    }
+                },
+                
+                testRegex() {
+                    const regexString = App.elements.regexOutput.textContent.trim();
+                    const testString = App.elements.regexTestString.value;
+                    const resultEl = App.elements.regexTestResult;
+
+                    if (!regexString) {
+                        resultEl.innerHTML = `<p class="text-yellow-500">Сначала сгенерируйте Regex.</p>`;
+                        return;
+                    }
+
+                    try {
+                        const match = regexString.match(/\/(.*?)\/([gimyus]*)/);
+                        const regex = new RegExp(match[1], match[2]);
+                        const matches = testString.match(regex);
+
+                        if (matches) {
+                            let highlightedString = testString.replace(regex, (m) => `<span class="bg-yellow-300 text-black px-1 rounded">${m}</span>`);
+                            resultEl.innerHTML = `<p class="text-green-500 font-bold">Найдено совпадений: ${matches.length}</p><div class="mt-2 p-2 bg-[var(--tg-secondary-bg)] rounded">${highlightedString}</div>`;
+                        } else {
+                            resultEl.innerHTML = `<p class="text-red-500">Совпадений не найдено.</p>`;
+                        }
+                    } catch (e) {
+                         resultEl.innerHTML = `<p class="text-red-500">Ошибка Regex: ${e.message}</p>`;
+                    }
+                },
+                
+                async generateGitCommand() {
+                    const prompt = App.elements.gitPrompt.value.trim();
+                    if (!prompt) {
+                        App.ui.showPopup({title: 'Ошибка', message: 'Пожалуйста, опишите, что вы хотите сделать.'});
+                        return;
+                    }
+                    const btn = App.elements.gitGenerateBtn;
+                    const originalText = btn.innerHTML;
+                    btn.innerHTML = `<span class="loader"></span><span class="ml-2">Генерация...</span>`;
+                    btn.disabled = true;
+
+                    try {
+                        const systemPrompt = App.api.createGitCommandPrompt(prompt);
+                        const response = await App.api.callGemini(systemPrompt);
+                        const commandMatch = response.match(/```(?:bash|sh|git)?\n([\s\S]*?)\n```/s) || response.match(/`([^`]+)`/);
+                        const command = commandMatch ? commandMatch[1].trim() : response.trim();
+
+                        App.elements.gitOutput.querySelector('code').textContent = command;
+                        App.elements.gitOutputContainer.classList.remove('hidden');
+                    } catch (error) {
+                        console.error('Git Command Generation Error:', error);
+                        App.ui.showPopup({title: 'Ошибка генерации', message: error.message});
+                    } finally {
+                        btn.innerHTML = 'Сгенерировать';
+                        btn.disabled = false;
+                    }
+                },
+
+                async calculateHashes() {
+                    const input = App.elements.hashInput.value;
+                    
+                    // MD5 (using external library)
+                    App.elements.hashMd5.textContent = md5(input);
+
+                    // SHA-256 (using Web Crypto API)
+                    try {
+                        const encoder = new TextEncoder();
+                        const data = encoder.encode(input);
+                        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                        const hashArray = Array.from(new Uint8Array(hashBuffer));
+                        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                        App.elements.hashSha256.textContent = hashHex;
+                    } catch (e) {
+                        App.elements.hashSha256.textContent = 'Ошибка при вычислении SHA-256';
+                        console.error(e);
+                    }
+                },
+
+                updateColors(source) {
+                    if (App.state.isColorUpdating) return;
+                    App.state.isColorUpdating = true;
+
+                    const picker = App.elements.colorPicker;
+                    const hexInput = App.elements.colorHex;
+                    const rgbInput = App.elements.colorRgb;
+                    const hslInput = App.elements.colorHsl;
+
+                    let hex, rgb, hsl;
+
+                    try {
+                        if (source === 'color-picker') {
+                            hex = picker.value;
+                            rgb = this.hexToRgb(hex);
+                            hsl = this.rgbToHsl(rgb.r, rgb.g, rgb.b);
+                        } else if (source === 'color-hex') {
+                            hex = hexInput.value;
+                            if (!/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(hex)) throw new Error();
+                            rgb = this.hexToRgb(hex);
+                            hsl = this.rgbToHsl(rgb.r, rgb.g, rgb.b);
+                        } else if (source === 'color-rgb') {
+                            const match = rgbInput.value.match(/(\d+),\s*(\d+),\s*(\d+)/);
+                            if (!match) throw new Error();
+                            rgb = { r: parseInt(match[1]), g: parseInt(match[2]), b: parseInt(match[3]) };
+                            if (rgb.r > 255 || rgb.g > 255 || rgb.b > 255) throw new Error();
+                            hex = this.rgbToHex(rgb.r, rgb.g, rgb.b);
+                            hsl = this.rgbToHsl(rgb.r, rgb.g, rgb.b);
+                        } else if (source === 'color-hsl') {
+                            const match = hslInput.value.match(/(\d+),\s*(\d+)%?,\s*(\d+)%?/);
+                            if (!match) throw new Error();
+                            hsl = { h: parseInt(match[1]), s: parseInt(match[2]), l: parseInt(match[3]) };
+                            if (hsl.h > 360 || hsl.s > 100 || hsl.l > 100) throw new Error();
+                            rgb = this.hslToRgb(hsl.h, hsl.s, hsl.l);
+                            hex = this.rgbToHex(rgb.r, rgb.g, rgb.b);
+                        }
+
+                        if (source !== 'color-picker') picker.value = hex;
+                        if (source !== 'color-hex') hexInput.value = hex;
+                        if (source !== 'color-rgb') rgbInput.value = `${rgb.r}, ${rgb.g}, ${rgb.b}`;
+                        if (source !== 'color-hsl') hslInput.value = `${hsl.h}, ${hsl.s}%, ${hsl.l}%`;
+                        
+                        [hexInput, rgbInput, hslInput].forEach(el => el.style.borderColor = 'transparent');
+
+                    } catch (e) {
+                        document.getElementById(source).style.borderColor = 'red';
+                    } finally {
+                        App.state.isColorUpdating = false;
+                    }
+                },
+
+                hexToRgb(hex) {
+                    let r = 0, g = 0, b = 0;
+                    if (hex.length == 4) {
+                        r = "0x" + hex[1] + hex[1];
+                        g = "0x" + hex[2] + hex[2];
+                        b = "0x" + hex[3] + hex[3];
+                    } else if (hex.length == 7) {
+                        r = "0x" + hex[1] + hex[2];
+                        g = "0x" + hex[3] + hex[4];
+                        b = "0x" + hex[5] + hex[6];
+                    }
+                    return { r: +r, g: +g, b: +b };
+                },
+
+                rgbToHex(r, g, b) {
+                    return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toLowerCase();
+                },
+                
+                rgbToHsl(r, g, b) {
+                    r /= 255; g /= 255; b /= 255;
+                    let max = Math.max(r, g, b), min = Math.min(r, g, b);
+                    let h, s, l = (max + min) / 2;
+                    if (max == min) {
+                        h = s = 0;
+                    } else {
+                        let d = max - min;
+                        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                        switch(max) {
+                            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                            case g: h = (b - r) / d + 2; break;
+                            case b: h = (r - g) / d + 4; break;
+                        }
+                        h /= 6;
+                    }
+                    return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
+                },
+
+                hslToRgb(h, s, l) {
+                    h /= 360; s /= 100; l /= 100;
+                    let r, g, b;
+                    if (s == 0) {
+                        r = g = b = l;
+                    } else {
+                        const hue2rgb = (p, q, t) => {
+                            if (t < 0) t += 1;
+                            if (t > 1) t -= 1;
+                            if (t < 1/6) return p + (q - p) * 6 * t;
+                            if (t < 1/2) return q;
+                            if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+                            return p;
+                        }
+                        let q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+                        let p = 2 * l - q;
+                        r = hue2rgb(p, q, h + 1/3);
+                        g = hue2rgb(p, q, h);
+                        b = hue2rgb(p, q, h - 1/3);
+                    }
+                    return { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255) };
                 }
             },
+
 
             api: {
                 createCodeGenerationPrompt(userPrompt, existingCode) {
@@ -1153,6 +1518,12 @@
                     return existingCode
                         ? `${baseInstruction}\nВот существующий код:\n\n${existingCode}\n\nЗапрос пользователя: "${userPrompt}".\nИзмени код и верни новую полную версию.`
                         : `${baseInstruction}\nЗапрос пользователя: "${userPrompt}".\nСоздай код с нуля.`;
+                },
+                createRegexGenerationPrompt(userPrompt) {
+                    return `Ты - эксперт по регулярным выражениям. По запросу пользователя создай регулярное выражение. Верни ТОЛЬКО само выражение в формате /pattern/flags, без объяснений, примеров или блоков кода. Например, если пользователь просит найти email, верни просто /\\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}\\b/i. Запрос пользователя: "${userPrompt}"`;
+                },
+                createGitCommandPrompt(userPrompt) {
+                    return `Ты - эксперт по Git. По запросу пользователя создай ОДНУ наиболее подходящую команду Git. Верни ТОЛЬКО саму команду, без объяснений, примеров или блоков кода. Например, если пользователь просит 'откатить последний коммит, но оставить изменения', верни просто 'git reset --soft HEAD~1'. Запрос пользователя: "${userPrompt}"`;
                 },
                 async callGemini(prompt, retries = 3, delay = 1000) {
                     const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${App.config.apiKey}`;
