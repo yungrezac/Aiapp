@@ -367,7 +367,7 @@
     document.addEventListener('DOMContentLoaded', () => {
         const App = {
             config: {
-                apiKey: 'YOUR_GEMINI_API_KEY', // ВАЖНО: Замените на ваш API ключ Gemini
+                apiKey: 'AIzaSyAg2oUJsSrbo2N9d4S5A0PVUuY9NEcXXRo', // ВАЖНО: Замените на ваш API ключ Gemini
                 botUsername: 'yr_dev_bot',
                 appName: 'aiyrf',
                 supabaseUrl: 'https://mhwzgpexajfqqtlgivfc.supabase.co',
@@ -377,9 +377,9 @@
                 maxDailyChats: 5,
                 tonRecipientAddress: 'UQA-NjtXmWz0-GFB59p2jSjdBXtq4H9qDo6-N2xvDCsC9NTL',
                 tonSubscriptionPrice: '5000000000', // 5 TON in nanoTONs
-                proModelName: 'gemini-1.5-pro-latest',
-                freeModelName: 'gemini-1.5-flash-latest',
-                imageModelName: 'imagen-3.0-generate-002'
+                proModelName: 'gemini-2.5-pro',
+                freeModelName: 'gemini-2.5-flash',
+                imageModelName: 'imagen-3.0'
             },
             state: {
                 userProfile: null,
@@ -706,9 +706,9 @@
                                 <h3 class="text-lg font-bold text-center mb-3">Получите PRO-доступ</h3>
                                 <ul class="space-y-2 text-sm">
                                     <li class="flex items-center space-x-3">${checkIcon}<span><strong>Безлимитные</strong> генерации и чаты</span></li>
-                                    <li class="flex items-center space-x-3">${proIcon}<span>Доступ к модели <strong>Gemini 1.5 Pro</strong></span></li>
-                                    <li class="flex items-center space-x-3">${proIcon}<span>Новый инструмент: <strong>AI Генератор Изображений</strong></span></li>
-                                    <li class="flex items-center space-x-3">${proIcon}<span>Новый инструмент: <strong>AI Анализатор Кода</strong></span></li>
+                                    <li class="flex items-center space-x-3">${checkIcon}<span>Доступ к модели <strong>YR/AI Pro</strong></span></li>
+                                    <li class="flex items-center space-x-3">${checkIcon}<span>Новый инструмент: <strong>AI Генератор Изображений</strong></span></li>
+                                    <li class="flex items-center space-x-3">${checkIcon}<span>Новый инструмент: <strong>AI Анализатор Кода</strong></span></li>
                                     <li class="flex items-center space-x-3">${checkIcon}<span>Приоритетная обработка запросов</span></li>
                                     <li class="flex items-center space-x-3">${checkIcon}<span>Поддержка и развитие проекта</span></li>
                                 </ul>
