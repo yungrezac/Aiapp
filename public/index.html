@@ -20,9 +20,6 @@
     <!-- Подключение Ton Connect UI SDK -->
     <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
     
-    <!-- Подключение MD5 (необходимо для хеширования, т.к. SubtleCrypto его не поддерживает) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/blueimp-md5/2.19.0/js/md5.min.js"></script>
-
     <!-- Стили приложения -->
     <style>
         :root {
@@ -78,11 +75,40 @@
         #history-modal-panel.active { transform: translateY(0); }
         .tool-content { display: none; }
         .tool-content.active { display: block; animation: fadeIn 0.3s; }
-        #color-picker { -webkit-appearance: none; -moz-appearance: none; appearance: none; width: 100%; height: 40px; border: none; cursor: pointer; background-color: transparent; }
+        /* Стили для color picker */
+        #color-picker {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 40px;
+            border: none;
+            cursor: pointer;
+            background-color: transparent;
+        }
         #color-picker::-webkit-color-swatch-wrapper { padding: 0; }
         #color-picker::-webkit-color-swatch { border: 1px solid var(--tg-hint); border-radius: 0.5rem; }
-        .skeleton { background-color: var(--tg-secondary-bg); border-radius: 0.5rem; animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+        .pro-badge {
+            background-color: #ffd700;
+            color: #333;
+            font-size: 0.6rem;
+            font-weight: bold;
+            padding: 1px 4px;
+            border-radius: 4px;
+            margin-left: 6px;
+            vertical-align: middle;
+        }
+        .lock-icon {
+            width: 1em;
+            height: 1em;
+            margin-right: 4px;
+            vertical-align: text-bottom;
+            opacity: 0.6;
+        }
+        .tool-nav-button.locked {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body class="flex flex-col h-screen">
@@ -140,6 +166,9 @@
                 <button data-tool="git" class="tool-nav-button flex-shrink-0 p-3 text-center text-[var(--tg-hint)] text-sm">AI Git</button>
                 <button data-tool="hash" class="tool-nav-button flex-shrink-0 p-3 text-center text-[var(--tg-hint)] text-sm">Hash</button>
                 <button data-tool="color" class="tool-nav-button flex-shrink-0 p-3 text-center text-[var(--tg-hint)] text-sm">Color</button>
+                <!-- PRO TOOLS -->
+                <button data-tool="image-generator" data-pro="true" class="tool-nav-button flex-shrink-0 p-3 text-center text-[var(--tg-hint)] text-sm items-center">AI Изображения</button>
+                <button data-tool="code-doctor" data-pro="true" class="tool-nav-button flex-shrink-0 p-3 text-center text-[var(--tg-hint)] text-sm items-center">AI Code Doctor</button>
             </div>
             <div class="flex-grow p-4 overflow-y-auto space-y-4">
                 <!-- JSON Formatter Tool -->
@@ -239,6 +268,34 @@
                         </div>
                     </div>
                 </div>
+                 <!-- PRO: AI Image Generator Tool -->
+                <div id="tool-image-generator" class="tool-content">
+                    <h2 class="text-xl font-semibold mb-2 flex items-center">Генератор Изображений <span class="pro-badge">PRO</span></h2>
+                    <textarea id="image-prompt" class="w-full h-24 p-2 rounded-lg bg-[var(--tg-secondary-bg)] focus:outline-none text-sm" placeholder="Опишите изображение, которое вы хотите создать. Например: 'a cute cat wearing a wizard hat'"></textarea>
+                    <button id="image-generate-btn" class="w-full mt-2 bg-[var(--tg-button)] text-[var(--tg-button-text)] py-2 rounded-lg btn-transition flex items-center justify-center">Сгенерировать</button>
+                    <div id="image-output-container" class="mt-4">
+                        <div id="image-loader" class="hidden flex-col items-center justify-center p-4">
+                            <div class="loader" style="width: 32px; height: 32px;"></div>
+                            <p class="mt-2 text-sm text-[var(--tg-hint)]">Магия в процессе...</p>
+                        </div>
+                        <img id="image-output" src="" class="w-full rounded-lg hidden" alt="Generated Image"/>
+                    </div>
+                </div>
+                <!-- PRO: AI Code Doctor Tool -->
+                <div id="tool-code-doctor" class="tool-content">
+                    <h2 class="text-xl font-semibold mb-2 flex items-center">Анализатор Кода <span class="pro-badge">PRO</span></h2>
+                    <textarea id="code-doctor-input" class="w-full h-48 p-2 rounded-lg bg-[var(--tg-secondary-bg)] focus:outline-none font-mono text-sm" placeholder="Вставьте ваш код сюда..."></textarea>
+                    <select id="code-doctor-action" class="w-full mt-2 p-2 rounded-lg bg-[var(--tg-secondary-bg)] focus:outline-none">
+                        <option value="explain">Объяснить код</option>
+                        <option value="refactor">Рефакторинг</option>
+                        <option value="debug">Найти баги</option>
+                    </select>
+                    <button id="code-doctor-run-btn" class="w-full mt-2 bg-[var(--tg-button)] text-[var(--tg-button-text)] py-2 rounded-lg btn-transition flex items-center justify-center">Выполнить</button>
+                    <div id="code-doctor-output-container" class="mt-4 hidden">
+                        <h3 class="font-semibold">Результат:</h3>
+                        <pre class="p-3 rounded-lg bg-[#2d2d2d] text-white text-sm whitespace-pre-wrap font-mono relative"><code id="code-doctor-output" class="language-markdown"></code></pre>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -246,7 +303,7 @@
         <div id="profile-page" class="page p-4 overflow-y-auto flex-col h-full space-y-4">
             <div id="user-profile-card" class="flex items-center justify-between space-x-4 p-4 bg-[var(--tg-secondary-bg)] rounded-xl">
                 <div class="flex items-center space-x-4 min-w-0">
-                    <img id="user-avatar" src="https://placehold.co/64x64/EFEFEF/333333?text=U" class="w-16 h-16 rounded-full object-cover bg-gray-300 flex-shrink-0">
+                    <img id="user-avatar" src="https://placehold.co/64x64/EFEFEF/333333?text=User" class="w-16 h-16 rounded-full object-cover bg-gray-300 flex-shrink-0">
                     <div class="flex-grow min-w-0">
                         <h2 id="user-fullname" class="text-xl font-bold truncate">Имя пользователя</h2>
                         <p id="user-username" class="text-sm text-[var(--tg-hint)] truncate">@username</p>
@@ -271,7 +328,7 @@
                      <h3 class="text-lg font-bold">Приглашенные вами</h3>
                      <span id="referral-count" class="text-sm font-bold bg-[var(--tg-button)] text-[var(--tg-button-text)] px-2 py-1 rounded-full">0</span>
                 </div>
-                <div id="referral-list" class="space-y-2 max-h-48 overflow-y-auto">
+                <div id="referral-list" class="space-y-2 max-h-150 overflow-y-auto">
                     <p class="text-sm text-[var(--tg-hint)]">У вас пока нет рефералов.</p>
                 </div>
             </div>
@@ -295,106 +352,94 @@
     <!-- Модальное окно истории чатов -->
     <div id="history-modal-overlay"></div>
     <div id="history-modal-panel">
-        <div class="flex justify-between items-center mb-4 flex-shrink-0">
-            <h3 class="text-xl font-bold">История чатов</h3>
-            <button id="close-history-modal-button" class="p-2 rounded-full hover:bg-[var(--tg-secondary-bg)] btn-transition" aria-label="Закрыть">
-                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-        </div>
-        <div id="chat-list" class="space-y-2 overflow-y-auto flex-grow">
-            <!-- Skeleton Loader for Chat List -->
-            <div class="space-y-2">
-                <div class="h-16 w-full skeleton"></div>
-                <div class="h-16 w-full skeleton"></div>
-                <div class="h-16 w-full skeleton"></div>
-            </div>
-        </div>
+        <h3 class="text-xl font-bold mb-4 flex-shrink-0">История чатов</h3>
+        <div id="chat-list" class="space-y-2 overflow-y-auto flex-grow"></div>
     </div>
     
     <!-- Подключение Prism.js JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+    <!-- Подключение MD5 (необходимо для хеширования, т.к. SubtleCrypto его не поддерживает) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/blueimp-md5/2.19.0/js/md5.min.js"></script>
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
         const App = {
-            // --- КОНФИГУРАЦИЯ ---
             config: {
-                botUsername: 'yr_dev_bot', // Замените на имя вашего бота
-                appName: 'aiyrf', // Имя вашего Mini App
+                apiKey: 'YOUR_GEMINI_API_KEY', // ВАЖНО: Замените на ваш API ключ Gemini
+                botUsername: 'yr_dev_bot',
+                appName: 'aiyrf',
                 supabaseUrl: 'https://mhwzgpexajfqqtlgivfc.supabase.co',
                 supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1od3pncGV4YWpmcXF0bGdpdmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQwMzU1ODAsImV4cCI6MjA2OTYxMTU4MH0.jmmkJ2gsfRMVOo3KVTHYS2u8IIoBUH7D5ZemZowwpzE',
                 maxDailyGenerations: 3,
                 maxMonthlyGenerations: 30,
                 maxDailyChats: 5,
-                tonRecipientAddress: 'UQA-NjtXmWz0-GFB59p2jSjdBXtq4H9qDo6-N2xvDCsC9NTL', // Адрес для получения платежей TON
-                tonSubscriptionPrice: '5000000000', // Цена подписки в нано-TON (5 TON)
-                geminiModel: 'gemini-1.5-flash-latest' // Модель Gemini
+                tonRecipientAddress: 'UQA-NjtXmWz0-GFB59p2jSjdBXtq4H9qDo6-N2xvDCsC9NTL',
+                tonSubscriptionPrice: '5000000000', // 5 TON in nanoTONs
+                proModelName: 'gemini-1.5-pro-latest',
+                freeModelName: 'gemini-1.5-flash-latest',
+                imageModelName: 'imagen-3.0-generate-002'
             },
-            // --- СОСТОЯНИЕ ПРИЛОЖЕНИЯ ---
             state: {
                 userProfile: null,
                 chats: [],
                 activeChat: null,
+                myReferrals: [],
                 isGenerating: false,
-                isColorUpdating: false,
-                isInitialized: false,
-                debounceTimer: null,
+                isColorUpdating: false // Флаг для предотвращения рекурсивных обновлений цвета
             },
-            // --- ЭЛЕМЕНТЫ DOM ---
             elements: {},
-            // --- ИНСТАНСЫ SDK ---
             tg: window.Telegram.WebApp,
             supabase: null,
             tonConnectUI: null,
 
-            // --- ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ ---
             async init() {
                 try {
                     this.tg.ready();
                     this.tg.expand();
                     this.cacheDOMElements();
                     this.eventManager.addEventListeners();
-                    this.ui.showGlobalLoader('Подключаемся...');
 
                     this.supabase = supabase.createClient(this.config.supabaseUrl, this.config.supabaseAnonKey);
                     
                     if (!this.tg.initDataUnsafe.user?.id) {
-                        throw new Error("Не удалось получить данные пользователя Telegram. Пожалуйста, перезапустите приложение.");
+                        throw new Error("Не удалось получить данные пользователя Telegram.");
                     }
 
                     this.tonManager.init();
                     this.toolsManager.init();
 
-                    this.ui.showGlobalLoader('Загрузка данных...');
-                    await this.dataManager.loadInitialData();
+                    this.elements.loaderMessage.textContent = 'Загрузка данных...';
+                    await this.dataManager.loadInitialDataAndChats();
                     
                     await this.ui.showWelcomePopupIfNeeded();
                     await this.referralManager.processNewReferral();
 
-                    this.state.isInitialized = true;
                     this.ui.renderAll();
-                    this.ui.hideGlobalLoader();
+                    this.elements.globalLoader.style.display = 'none';
                     console.log("App Initialized. User:", this.tg.initDataUnsafe.user);
 
                 } catch (error) {
                     console.error("Initialization failed:", error);
-                    this.ui.showGlobalLoader(`Ошибка: ${error.message}`, true);
+                    this.elements.loaderMessage.textContent = `Ошибка: ${error.message}`;
                     this.tg.HapticFeedback.notificationOccurred('error');
+                    this.ui.showPopup({ title: 'Критическая ошибка', message: 'Не удалось загрузить приложение. ' + error.message });
                 }
             },
 
             cacheDOMElements() {
                 const ids = [
                     'chat-page', 'creation-page', 'profile-page', 'tools-page',
-                    'chat-history', 'prompt-input', 'generate-button', 'code-view', 
-                    'preview-view', 'code-output', 'preview-iframe', 'copy-button', 
-                    'subscription-status', 'chat-list', 'chat-title', 'history-button', 
-                    'page-new-chat-button', 'history-modal-overlay', 'history-modal-panel',
+                    'chat-history', 'prompt-input', 
+                    'generate-button', 'code-view', 'preview-view', 'code-output', 'preview-iframe', 
+                    'copy-button', 'subscription-status', 'chat-list', 'chat-title',
+                    'history-button', 'page-new-chat-button',
+                    'history-modal-overlay', 'history-modal-panel',
                     'user-profile-card', 'user-avatar', 'user-fullname', 'user-username',
                     'copy-referral-link-button', 'referral-link-input', 'invite-friend-button',
                     'referral-list-section', 'referral-list', 'referral-count',
-                    'global-loader', 'loader-message', 'ton-connect-container',
+                    'global-loader', 'loader-message',
+                    'ton-connect-container',
                     'tool-json', 'json-input', 'json-format-btn', 'json-clear-btn', 'json-output',
                     'tool-base64', 'base64-input', 'base64-encode-btn', 'base64-decode-btn', 'base64-output',
                     'tool-url', 'url-input', 'url-encode-btn', 'url-decode-btn', 'url-output',
@@ -403,7 +448,9 @@
                     'tool-git', 'git-prompt', 'git-generate-btn', 'git-output-container', 'git-output', 'git-copy-btn',
                     'tool-hash', 'hash-input', 'hash-output', 'hash-md5', 'hash-sha256',
                     'tool-color', 'color-picker', 'color-hex', 'color-rgb', 'color-hsl',
-                    'close-history-modal-button'
+                    // PRO Tools
+                    'tool-image-generator', 'image-prompt', 'image-generate-btn', 'image-output-container', 'image-loader', 'image-output',
+                    'tool-code-doctor', 'code-doctor-input', 'code-doctor-action', 'code-doctor-run-btn', 'code-doctor-output-container', 'code-doctor-output'
                 ];
                 ids.forEach(id => {
                     const camelCaseId = id.replace(/-(\w)/g, (_, c) => c.toUpperCase());
@@ -416,139 +463,178 @@
                 this.elements.toolContents = document.querySelectorAll('.tool-content');
             },
             
-            // --- МОДУЛЬ УПРАВЛЕНИЯ ДАННЫМИ ---
             dataManager: {
-                async loadInitialData() {
+                async loadInitialDataAndChats() {
                     const user = App.tg.initDataUnsafe.user;
-                    let profile = await this.getProfile(user.id);
+                    const userId = user.id;
 
+                    let { data: profile, error: profileError } = await App.supabase
+                        .from('profiles')
+                        .select('*')
+                        .eq('id', userId)
+                        .single();
+
+                    if (profileError && profileError.code !== 'PGRST116') {
+                        throw new Error(`Failed to load profile: ${profileError.message}`);
+                    }
+                    
                     if (!profile) {
                         profile = await this.createNewUserProfile(user);
                     }
 
-                    profile = this.resetLimitsIfNeeded(profile);
-                    App.state.userProfile = profile;
+                    const now = new Date();
+                    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+                    const currentMonth = now.getMonth();
                     
-                    await this.loadChats(user.id);
-                    if (App.state.chats.length > 0) {
-                        await this.loadActiveChat(App.state.chats[0].id);
-                    } else {
-                        await App.chatManager.createNewChat(false); // Создаем первый чат без проверки лимитов
-                    }
-                },
+                    const updates = {};
+                    let needsUpdate = false;
 
-                async getProfile(userId) {
-                    const { data, error } = await App.supabase.from('profiles').select('*').eq('id', userId).single();
-                    if (error && error.code !== 'PGRST116') throw new Error(`Ошибка загрузки профиля: ${error.message}`);
-                    return data;
+                    const lastGenReset = profile.daily_generations_last_reset ? new Date(profile.daily_generations_last_reset).getTime() : 0;
+                    if (lastGenReset < todayStart) {
+                        updates.daily_generations_count = 0;
+                        updates.daily_generations_last_reset = now.toISOString();
+                        needsUpdate = true;
+                    }
+
+                    const lastChatReset = profile.daily_chats_last_reset ? new Date(profile.daily_chats_last_reset).getTime() : 0;
+                    if (lastChatReset < todayStart) {
+                        updates.daily_chats_count = 0;
+                        updates.daily_chats_last_reset = now.toISOString();
+                        needsUpdate = true;
+                    }
+
+                    const lastMonthlyResetMonth = profile.monthly_generations_last_reset ? new Date(profile.monthly_generations_last_reset).getMonth() : -1;
+                    if (lastMonthlyResetMonth !== currentMonth) {
+                        updates.monthly_generations_count = 0;
+                        updates.monthly_generations_last_reset = now.toISOString();
+                        needsUpdate = true;
+                    }
+                    
+                    if (needsUpdate) {
+                        const { data: updatedProfile, error: updateError } = await App.supabase
+                            .from('profiles')
+                            .update(updates)
+                            .eq('id', userId)
+                            .select()
+                            .single();
+                        if (updateError) console.error("Failed to reset limits:", updateError);
+                        else profile = updatedProfile;
+                    }
+
+                    App.state.userProfile = profile;
+
+                    const { data: chats, error: chatsError } = await App.supabase
+                        .from('chats')
+                        .select('id, title, created_at')
+                        .eq('user_id', userId)
+                        .order('created_at', { ascending: false });
+
+                    if (chatsError) throw new Error(`Failed to load chats: ${chatsError.message}`);
+                    App.state.chats = chats || [];
+
+                    if (App.state.chats.length === 0) {
+                        const newChat = await this.createNewChatInDB(userId, false); 
+                        App.state.chats.unshift(newChat);
+                    }
+
+                    const activeChatId = App.state.chats[0].id;
+                    await this.loadActiveChat(activeChatId);
                 },
 
                 async createNewUserProfile(user) {
-                    const { data, error } = await App.supabase.from('profiles').insert({
-                        id: user.id,
-                        username: user.username,
-                        full_name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
-                        photo_url: user.photo_url,
-                        updated_at: new Date().toISOString(),
-                        bonus_generations: App.tg.initDataUnsafe.start_param ? 1 : 0,
-                        has_seen_welcome_popup: false
-                    }).select().single();
-                    if (error) throw new Error(`Ошибка создания профиля: ${error.message}`);
+                    const { data, error } = await App.supabase
+                        .from('profiles')
+                        .insert({
+                            id: user.id,
+                            username: user.username,
+                            full_name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+                            photo_url: user.photo_url,
+                            updated_at: new Date().toISOString(),
+                            bonus_generations: App.tg.initDataUnsafe.start_param ? 1 : 0,
+                            has_seen_welcome_popup: false
+                        })
+                        .select()
+                        .single();
+
+                    if (error) throw new Error(`Failed to create profile: ${error.message}`);
                     return data;
                 },
 
-                resetLimitsIfNeeded(profile) {
-                    const now = new Date();
-                    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-                    const currentMonth = now.getMonth();
-
-                    const lastGenReset = profile.daily_generations_last_reset || todayStart;
-                    if (new Date(lastGenReset) < new Date(todayStart)) {
-                        profile.daily_generations_count = 0;
-                        profile.daily_generations_last_reset = todayStart;
-                    }
-
-                    const lastChatReset = profile.daily_chats_last_reset || todayStart;
-                    if (new Date(lastChatReset) < new Date(todayStart)) {
-                        profile.daily_chats_count = 0;
-                        profile.daily_chats_last_reset = todayStart;
-                    }
-                    
-                    const lastMonthlyReset = profile.monthly_generations_last_reset || todayStart;
-                    if (new Date(lastMonthlyReset).getMonth() !== currentMonth) {
-                        profile.monthly_generations_count = 0;
-                        profile.monthly_generations_last_reset = now.toISOString();
-                    }
-                    
-                    // Не обновляем в БД сразу, а возвращаем измененный объект. Обновление произойдет при первой необходимости.
-                    return profile;
-                },
-                
-                async loadChats(userId) {
-                    const { data, error } = await App.supabase.from('chats').select('id, title, created_at').eq('user_id', userId).order('created_at', { ascending: false });
-                    if (error) throw new Error(`Ошибка загрузки чатов: ${error.message}`);
-                    App.state.chats = data || [];
-                },
-
                 async loadActiveChat(chatId) {
-                    const { data, error } = await App.supabase.from('chats').select('*').eq('id', chatId).single();
+                    const { data, error } = await App.supabase
+                        .from('chats')
+                        .select('*')
+                        .eq('id', chatId)
+                        .single();
+
                     if (error) {
                         console.error(`Failed to load chat ${chatId}:`, error);
                         App.ui.showPopup({ title: 'Ошибка', message: 'Не удалось загрузить чат.' });
-                        // Если активный чат не загрузился, пытаемся загрузить следующий или создать новый
-                        const chatIndex = App.state.chats.findIndex(c => c.id === chatId);
-                        App.state.chats.splice(chatIndex, 1);
-                        if (App.state.chats.length > 0) {
-                           await this.loadActiveChat(App.state.chats[0].id);
-                        } else {
-                           await App.chatManager.createNewChat(false);
-                        }
                         return;
                     }
                     App.state.activeChat = data;
                 },
 
+                async createNewChatInDB(userId) {
+                    const { data, error } = await App.supabase
+                        .from('chats')
+                        .insert({
+                            user_id: userId,
+                            title: 'Новый чат',
+                            messages: [{ sender: 'ai', text: 'Привет! 👋 Опиши, какое веб-приложение ты хочешь создать.' }],
+                            generated_code: '',
+                        })
+                        .select('id, title, created_at')
+                        .single();
+                    
+                    if (error) {
+                         console.error('Failed to create new chat:', error);
+                         throw error;
+                    }
+                    return data;
+                },
+                
                 async saveActiveChat() {
                     if (!App.state.activeChat) return;
                     const { id, title, messages, generated_code } = App.state.activeChat;
-                    const { error } = await App.supabase.from('chats').update({ title, messages, generated_code }).eq('id', id);
+                    const { error } = await App.supabase
+                        .from('chats')
+                        .update({ title, messages, generated_code })
+                        .eq('id', id);
+                    
                     if (error) console.error('Failed to save chat:', error);
                 },
 
                 async updateUserProfile(updates) {
-                    const { data, error } = await App.supabase.from('profiles').update(updates).eq('id', App.state.userProfile.id).select().single();
+                    const { data, error } = await App.supabase
+                        .from('profiles')
+                        .update(updates)
+                        .eq('id', App.state.userProfile.id)
+                        .select()
+                        .single();
+
                     if (error) {
                         console.error('Failed to update profile:', error);
                         return null;
                     }
-                    App.state.userProfile = data; // Обновляем локальное состояние
+                    App.state.userProfile = data;
+                    App.ui.renderProfilePage();
                     return data;
-                },
-                
-                async deleteChat(chatId) {
-                    const { error } = await App.supabase.from('chats').delete().eq('id', chatId);
-                    if (error) {
-                         console.error('Failed to delete chat:', error);
-                         App.ui.showPopup({ title: 'Ошибка', message: 'Не удалось удалить чат.' });
-                         return false;
-                    }
-                    return true;
                 }
             },
             
-            // --- МОДУЛЬ УПРАВЛЕНИЯ ИНТЕРФЕЙСОМ ---
             ui: {
                 renderAll() {
-                    if (!App.state.isInitialized) return;
                     this.renderActiveChat();
                     this.renderProfilePage();
                     this.renderChatList();
+                    this.updateToolButtonsLockState();
                 },
                 renderActiveChat() {
                     const chat = App.state.activeChat;
                     if (!chat) {
                         App.elements.chatTitle.textContent = 'Загрузка...';
-                        App.elements.chatHistory.innerHTML = '<div class="h-16 w-3/4 skeleton self-start"></div><div class="h-16 w-3/4 skeleton self-end"></div>';
+                        App.elements.chatHistory.innerHTML = '';
                         return;
                     };
                     
@@ -570,8 +656,8 @@
                 renderUserProfile() {
                     const user = App.tg.initDataUnsafe.user;
                     if (!user) return;
+
                     App.elements.userAvatar.src = user.photo_url || `https://placehold.co/64x64/EFEFEF/333333?text=${user.first_name.charAt(0)}`;
-                    App.elements.userAvatar.onerror = () => { App.elements.userAvatar.src = `https://placehold.co/64x64/EFEFEF/333333?text=${user.first_name.charAt(0)}` };
                     App.elements.userFullname.textContent = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Anonymous';
                     App.elements.userUsername.textContent = user.username ? `@${user.username}` : 'No username';
                 },
@@ -594,6 +680,7 @@
                         
                         const priceInTon = parseInt(App.config.tonSubscriptionPrice) / 1_000_000_000;
                         const checkIcon = `<svg class="w-5 h-5 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>`;
+                        const proIcon = `<svg class="w-5 h-5 text-yellow-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>`;
 
                         el.innerHTML = `
                             <div class="grid grid-cols-2 gap-4 text-center mb-4">
@@ -618,8 +705,10 @@
                                 <h3 class="text-lg font-bold text-center mb-3">Получите PRO-доступ</h3>
                                 <ul class="space-y-2 text-sm">
                                     <li class="flex items-center space-x-3">${checkIcon}<span><strong>Безлимитные</strong> генерации и чаты</span></li>
-                                    <li class="flex items-center space-x-3">${checkIcon}<span>Доступ к самым <strong>продвинутым моделям ИИ</strong></span></li>
-                                    <li class="flex items-center space-x-3">${checkIcon}<span><strong>Приоритетная</strong> обработка запросов</span></li>
+                                    <li class="flex items-center space-x-3">${proIcon}<span>Доступ к модели <strong>Gemini 1.5 Pro</strong></span></li>
+                                    <li class="flex items-center space-x-3">${proIcon}<span>Новый инструмент: <strong>AI Генератор Изображений</strong></span></li>
+                                    <li class="flex items-center space-x-3">${proIcon}<span>Новый инструмент: <strong>AI Анализатор Кода</strong></span></li>
+                                    <li class="flex items-center space-x-3">${checkIcon}<span>Приоритетная обработка запросов</span></li>
                                     <li class="flex items-center space-x-3">${checkIcon}<span>Поддержка и развитие проекта</span></li>
                                 </ul>
                             </div>
@@ -636,18 +725,18 @@
                     const userId = App.state.userProfile?.id;
                     if (!userId) return;
 
-                    const listEl = App.elements.referralList;
-                    const countEl = App.elements.referralCount;
-                    listEl.innerHTML = '<div class="h-12 w-full skeleton"></div><div class="h-12 w-full skeleton"></div>'; // Skeleton loader
+                    const { data: referrals, error: referralsError } = await App.supabase
+                        .from('referrals')
+                        .select('referred_id')
+                        .eq('referrer_id', userId);
 
-                    const { data: referrals, error } = await App.supabase.from('referrals').select('referred_id, profiles(id, full_name, username, photo_url)').eq('referrer_id', userId);
-
-                    if (error) {
-                        console.error("Failed to load referrals:", error);
-                        listEl.innerHTML = `<p class="text-sm text-[var(--tg-hint)]">Ошибка загрузки рефералов.</p>`;
+                    if (referralsError) {
+                        console.error("Failed to load referral IDs:", referralsError);
                         return;
                     }
-                    
+
+                    const listEl = App.elements.referralList;
+                    const countEl = App.elements.referralCount;
                     listEl.innerHTML = '';
                     countEl.textContent = referrals.length;
 
@@ -656,17 +745,35 @@
                         return;
                     }
 
+                    const referredIds = referrals.map(r => r.referred_id);
+
+                    const { data: profiles, error: profilesError } = await App.supabase
+                        .from('profiles')
+                        .select('id, full_name, username, photo_url')
+                        .in('id', referredIds);
+
+                    if (profilesError) {
+                        console.error("Failed to load referred profiles:", profilesError);
+                    }
+
+                    const profilesMap = new Map(profiles?.map(p => [p.id, p]));
+
                     referrals.forEach(ref => {
-                        const profile = ref.profiles;
-                        const name = profile?.username ? `@${profile.username}` : (profile?.full_name || `Пользователь #${profile.id}`);
-                        const avatar = profile?.photo_url || `https://placehold.co/40x40/EFEFEF/333333?text=${(name || 'ID').charAt(0).toUpperCase()}`;
-                        
+                        const profile = profilesMap.get(ref.referred_id);
+                        const referredId = ref.referred_id;
+
                         const item = document.createElement('div');
                         item.className = 'flex items-center space-x-3 p-2 rounded-lg';
+                        
+                        const name = profile?.username ? `@${profile.username}` : (profile?.full_name || `Пользователь #${referredId}`);
+                        const subtext = profile?.username ? (profile.full_name || `ID: ${referredId}`) : `ID: ${referredId}`;
+                        const avatar = profile?.photo_url || `https://placehold.co/40x40/EFEFEF/333333?text=${(name || 'ID').charAt(0).toUpperCase()}`;
+                        
                         item.innerHTML = `
-                            <img src="${avatar}" class="w-10 h-10 rounded-full bg-gray-300" onerror="this.src='https://placehold.co/40x40/EFEFEF/333333?text=U'">
+                            <img src="${avatar}" class="w-10 h-10 rounded-full bg-gray-300">
                             <div class="flex-grow">
                                 <p class="font-semibold">${name}</p>
+                                <p class="text-xs text-[var(--tg-hint)]">${subtext}</p>
                             </div>
                         `;
                         listEl.appendChild(item);
@@ -682,27 +789,12 @@
                     const el = App.elements.chatList;
                     el.innerHTML = '';
                     
-                    if (chats.length === 0) {
-                        el.innerHTML = '<p class="text-sm text-center text-[var(--tg-hint)] p-4">История чатов пуста.</p>';
-                        return;
-                    }
-
                     chats.forEach(chat => {
+                        const chatItem = document.createElement('div');
                         const isActive = chat.id === activeChatId;
-                        const item = document.createElement('div');
-                        item.className = `flex items-center justify-between p-3 rounded-lg cursor-pointer ${isActive ? 'bg-[var(--tg-button)] text-[var(--tg-button-text)]' : 'bg-[var(--tg-secondary-bg)] hover:bg-opacity-75'}`;
-                        item.innerHTML = `
-                            <div class="flex-grow min-w-0">
-                                <h4 class="font-semibold truncate">${chat.title}</h4>
-                                <p class="text-xs opacity-70">${new Date(chat.created_at).toLocaleString()}</p>
-                            </div>
-                            <button data-chat-id="${chat.id}" class="delete-chat-btn flex-shrink-0 p-2 rounded-full hover:bg-red-500/50 text-red-500 hover:text-white">
-                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                            </button>
-                        `;
-                        
-                        item.addEventListener('click', async (e) => {
-                            if (e.target.closest('.delete-chat-btn')) return; // Не переключать чат при нажатии на удаление
+                        chatItem.className = `p-3 rounded-lg cursor-pointer ${isActive ? 'bg-[var(--tg-button)] text-[var(--tg-button-text)]' : 'bg-[var(--tg-secondary-bg)]'}`;
+                        chatItem.innerHTML = `<h4 class="font-semibold truncate">${chat.title}</h4><p class="text-xs opacity-70">${new Date(chat.created_at).toLocaleString()}</p>`;
+                        chatItem.addEventListener('click', async () => {
                             if (chat.id === App.state.activeChat?.id) {
                                 this.closeHistoryModal();
                                 return;
@@ -711,11 +803,8 @@
                             this.renderAll();
                             this.closeHistoryModal();
                         });
-                        
-                        el.appendChild(item);
+                        el.appendChild(chatItem);
                     });
-                     // Добавляем обработчики событий для кнопок удаления после рендеринга
-                    App.eventManager.addDeleteChatButtonListeners();
                 },
                 addMessageToChat(text, sender, isTyping = false) {
                     const messageDiv = document.createElement('div');
@@ -725,8 +814,8 @@
                         messageDiv.innerHTML = `<span class="loader"></span><span class="ml-2">${text}</span>`;
                         messageDiv.id = 'typing-indicator';
                     } else {
-                        // Простая защита от вставки HTML
-                        messageDiv.textContent = text;
+                        const textNode = document.createTextNode(text);
+                        messageDiv.appendChild(textNode);
                     }
                     
                     App.elements.chatHistory.appendChild(messageDiv);
@@ -739,21 +828,42 @@
                     if (pageId === 'profile-page') {
                         this.renderProfilePage();
                     }
+                     if (pageId === 'tools-page') {
+                        this.updateToolButtonsLockState();
+                    }
+                },
+                updateToolButtonsLockState() {
+                    const isPro = App.state.userProfile?.subscription_is_active;
+                    const lockIconSvg = `<svg class="lock-icon" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 8a6 6 0 01-7.743 5.743L10 14l-1 1-1 1H6v2H2v-4l4.257-4.257A6 6 0 1118 8zm-6-4a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd"></path></svg>`;
+
+                    App.elements.toolNavButtons.forEach(button => {
+                        if (button.dataset.pro === 'true') {
+                            // Clear previous state
+                            button.classList.remove('locked');
+                            const existingBadge = button.querySelector('.pro-badge');
+                            if (existingBadge) existingBadge.remove();
+                            const existingIcon = button.querySelector('.lock-icon');
+                            if (existingIcon) existingIcon.remove();
+
+                            if (isPro) {
+                                button.insertAdjacentHTML('beforeend', '<span class="pro-badge">PRO</span>');
+                            } else {
+                                button.classList.add('locked');
+                                button.insertAdjacentHTML('afterbegin', lockIconSvg);
+                            }
+                        }
+                    });
                 },
                 toggleCodePreview(view) {
                     App.elements.subNavButtons.forEach(b => b.classList.toggle('active', b.dataset.view === view));
                     App.elements.codeView.classList.toggle('hidden', view !== 'code');
                     App.elements.previewView.classList.toggle('hidden', view !== 'preview');
                 },
-                toggleButtonLoading(button, isLoading, originalContent) {
-                    if (isLoading) {
-                        button.dataset.original = button.innerHTML;
-                        button.innerHTML = `<span class="loader"></span>`;
-                        button.disabled = true;
-                    } else {
-                        button.innerHTML = originalContent || button.dataset.original;
-                        button.disabled = false;
-                    }
+                toggleGenerationButton(disabled) {
+                    App.state.isGenerating = disabled;
+                    App.elements.generateButton.disabled = disabled;
+                    App.elements.generateButton.style.opacity = disabled ? '0.7' : '1';
+                    App.elements.generateButton.style.cursor = disabled ? 'not-allowed' : 'pointer';
                 },
                 showPopup(options, callback) {
                     App.tg.showPopup(options, callback);
@@ -770,9 +880,13 @@
                                     { type: 'close' }
                                 ]
                             }, async (buttonId) => {
-                                if (buttonId === 'buy') App.tg.openTelegramLink('https://t.me/yung_rezac');
-                                else if (buttonId === 'chat') App.tg.openTelegramLink('https://t.me/+2_hEfzuqRIpjYTEy');
+                                if (buttonId === 'buy') {
+                                    App.tg.openTelegramLink('https://t.me/yung_rezac');
+                                } else if (buttonId === 'chat') {
+                                    App.tg.openTelegramLink('https://t.me/+2_hEfzuqRIpjYTEy');
+                                }
                                 await App.dataManager.updateUserProfile({ has_seen_welcome_popup: true });
+                                App.state.userProfile.has_seen_welcome_popup = true;
                                 resolve(); 
                             });
                         });
@@ -787,9 +901,9 @@
 
                         function type() {
                             if (i < code.length) {
-                                const chunk = code.substring(i, i + 10); // Увеличим чанк для скорости
+                                const chunk = code.substring(i, i + 5);
                                 element.textContent += chunk;
-                                i += 10;
+                                i += 5;
                                 if (i > code.length) i = code.length;
                                 
                                 Prism.highlightElement(element);
@@ -797,7 +911,6 @@
                                 
                                 requestAnimationFrame(type);
                             } else {
-                                Prism.highlightElement(element);
                                 resolve();
                             }
                         }
@@ -813,21 +926,8 @@
                     App.elements.historyModalOverlay.classList.remove('active');
                     App.elements.historyModalPanel.classList.remove('active');
                 },
-                showGlobalLoader(message, isError = false) {
-                    App.elements.loaderMessage.textContent = message;
-                    App.elements.globalLoader.style.display = 'flex';
-                    if (isError) {
-                       App.elements.globalLoader.querySelector('.loader').style.display = 'none';
-                    } else {
-                       App.elements.globalLoader.querySelector('.loader').style.display = 'inline-block';
-                    }
-                },
-                hideGlobalLoader() {
-                    App.elements.globalLoader.style.display = 'none';
-                }
             },
 
-            // --- МОДУЛЬ ОБРАБОТКИ СОБЫТИЙ ---
             eventManager: {
                 addEventListeners() {
                     App.elements.navButtons.forEach(button => button.addEventListener('click', () => App.ui.navigateToPage(button.dataset.page)));
@@ -838,143 +938,99 @@
                     
                     App.elements.historyButton.addEventListener('click', () => App.ui.openHistoryModal());
                     App.elements.historyModalOverlay.addEventListener('click', () => App.ui.closeHistoryModal());
-                    App.elements.closeHistoryModalButton.addEventListener('click', () => App.ui.closeHistoryModal());
-                    App.elements.pageNewChatButton.addEventListener('click', () => App.chatManager.createNewChat(true));
+                    App.elements.pageNewChatButton.addEventListener('click', () => App.chatManager.createNewChat());
                     
                     App.elements.copyReferralLinkButton.addEventListener('click', () => App.referralManager.copyReferralLink());
                     App.elements.inviteFriendButton.addEventListener('click', () => App.referralManager.shareReferralLink());
-                },
-                addDeleteChatButtonListeners() {
-                    document.querySelectorAll('.delete-chat-btn').forEach(button => {
-                        // Удаляем старый обработчик, чтобы избежать дублирования
-                        button.replaceWith(button.cloneNode(true));
-                    });
-                    document.querySelectorAll('.delete-chat-btn').forEach(button => {
-                        button.addEventListener('click', (e) => {
-                            e.stopPropagation();
-                            const chatId = e.currentTarget.dataset.chatId;
-                            App.chatManager.deleteChat(chatId);
-                        });
-                    });
+
+                    // PRO Tools Listeners
+                    App.elements.imageGenerateBtn.addEventListener('click', () => App.toolsManager.generateImage());
+                    App.elements.codeDoctorRunBtn.addEventListener('click', () => App.toolsManager.runCodeDoctor());
                 }
             },
 
-            // --- МОДУЛЬ УПРАВЛЕНИЯ ЧАТОМ ---
             chatManager: {
-                async createNewChat(checkLimits = true) {
+                async createNewChat() {
                     const profile = App.state.userProfile;
-                    if (checkLimits && !profile.subscription_is_active && profile.daily_chats_count >= App.config.maxDailyChats) {
+                    if (!profile.subscription_is_active && profile.daily_chats_count >= App.config.maxDailyChats) {
                         App.generationManager.showLimitPopup('Вы достигли дневного лимита на создание новых чатов.');
                         return;
                     }
 
-                    const { data: newChat, error } = await App.supabase.from('chats').insert({
-                        user_id: profile.id,
-                        title: 'Новый чат',
-                        messages: [{ sender: 'ai', text: 'Привет! 👋 Опиши, какое веб-приложение ты хочешь создать.' }],
-                        generated_code: '',
-                    }).select().single();
-                    
-                    if (error) {
-                        console.error('Failed to create new chat:', error);
-                        App.ui.showPopup({title: 'Ошибка', message: 'Не удалось создать новый чат.'});
-                        return;
-                    }
-                    
-                    if (checkLimits && !profile.subscription_is_active) {
+                    const newChatInfo = await App.dataManager.createNewChatInDB(profile.id);
+                    App.state.chats.unshift(newChatInfo);
+                    await App.dataManager.loadActiveChat(newChatInfo.id);
+
+                    if (!profile.subscription_is_active) {
                         await App.dataManager.updateUserProfile({ daily_chats_count: profile.daily_chats_count + 1 });
                     }
 
-                    App.state.chats.unshift(newChat);
-                    App.state.activeChat = newChat;
                     App.ui.renderAll();
                     App.ui.closeHistoryModal();
                 },
-                
-                deleteChat(chatId) {
-                    const chatToDelete = App.state.chats.find(c => c.id === chatId);
-                    if (!chatToDelete) return;
-                    
-                    App.ui.showPopup({
-                        title: 'Удалить чат?',
-                        message: `Вы уверены, что хотите удалить чат "${chatToDelete.title}"? Это действие необратимо.`,
-                        buttons: [
-                            { id: 'delete', type: 'destructive', text: 'Удалить' },
-                            { type: 'cancel' }
-                        ]
-                    }, async (buttonId) => {
-                        if (buttonId === 'delete') {
-                            const success = await App.dataManager.deleteChat(chatId);
-                            if (success) {
-                                App.state.chats = App.state.chats.filter(c => c.id !== chatId);
-                                // Если удалили активный чат, переключаемся на другой или создаем новый
-                                if (App.state.activeChat?.id === chatId) {
-                                    if (App.state.chats.length > 0) {
-                                        await App.dataManager.loadActiveChat(App.state.chats[0].id);
-                                    } else {
-                                        await this.createNewChat(false);
-                                    }
-                                }
-                                App.ui.renderAll();
-                                App.tg.HapticFeedback.notificationOccurred('success');
-                            }
-                        }
-                    });
-                },
-
                 copyCode(textToCopy) {
                     const text = textToCopy || App.state.activeChat?.generated_code;
                     if (!text) return;
-                    
-                    if (navigator.clipboard) {
-                        navigator.clipboard.writeText(text).then(() => {
-                            App.tg.HapticFeedback.notificationOccurred('success');
-                        }).catch(err => {
-                             this._fallbackCopy(text);
-                        });
-                    } else {
-                        this._fallbackCopy(text);
-                    }
-                },
-                _fallbackCopy(text) {
-                     const textarea = document.createElement('textarea');
+                    const textarea = document.createElement('textarea');
                     textarea.value = text;
                     document.body.appendChild(textarea);
                     textarea.select();
                     try {
                         document.execCommand('copy');
                         App.tg.HapticFeedback.notificationOccurred('success');
+                        return true;
                     } catch (err) {
                         App.tg.HapticFeedback.notificationOccurred('error');
                         App.ui.showPopup({ title: 'Ошибка', message: 'Не удалось скопировать.' });
+                        return false;
                     } finally {
                         document.body.removeChild(textarea);
                     }
                 }
             },
             
-            // --- МОДУЛЬ УПРАВЛЕНИЯ РЕФЕРАЛАМИ ---
             referralManager: {
                 async processNewReferral() {
                     const referrerId = App.tg.initDataUnsafe.start_param;
                     const currentUser = App.state.userProfile;
+
                     if (referrerId && !currentUser.referrer_id && currentUser.id.toString() !== referrerId) {
                         console.log(`New user ${currentUser.id} referred by ${referrerId}`);
                         try {
-                             // Используем RPC для безопасной обработки реферала
-                            const { error } = await App.supabase.rpc('handle_referral', {
-                                p_referrer_id: referrerId,
-                                p_referred_id: currentUser.id
-                            });
-                            if (error) throw error;
+                            const { data: referrerProfile, error: referrerError } = await App.supabase
+                                .from('profiles')
+                                .select('bonus_generations')
+                                .eq('id', referrerId)
+                                .single();
+
+                            if (referrerError) throw new Error(`Could not find referrer: ${referrerError.message}`);
+
+                            const { error: updateReferrerError } = await App.supabase
+                                .from('profiles')
+                                .update({ bonus_generations: (referrerProfile.bonus_generations || 0) + 1 })
+                                .eq('id', referrerId);
+
+                            if (updateReferrerError) throw new Error(`Could not update referrer bonus: ${updateReferrerError.message}`);
+
+                            const { error: updateNewUserError } = await App.supabase
+                                .from('profiles')
+                                .update({ referrer_id: referrerId })
+                                .eq('id', currentUser.id);
+
+                            if (updateNewUserError) throw new Error(`Could not update new user's referrer: ${updateNewUserError.message}`);
+
+                            const { error: insertReferralError } = await App.supabase
+                                .from('referrals')
+                                .insert({ referrer_id: referrerId, referred_id: currentUser.id });
+
+                            if (insertReferralError) throw new Error(`Could not log referral connection: ${insertReferralError.message}`);
                             
                             App.state.userProfile.referrer_id = referrerId;
-                            App.state.userProfile.bonus_generations += 1;
                             App.ui.showPopup({ title: 'Бонус!', message: 'Вы перешли по приглашению и получили 1 бонусную генерацию! Ваш друг также получил бонус.' });
-                            App.ui.renderSubscriptionStatus();
 
                         } catch (error) {
-                            console.error("Failed to process referral:", error);
+                            console.error("Failed to process referral on client-side:", error);
+                            App.ui.showPopup({ title: 'Ошибка', message: 'Не удалось обработать приглашение.' });
                         }
                     }
                 },
@@ -985,18 +1041,22 @@
                 },
                 copyReferralLink() {
                     const link = App.elements.referralLinkInput.value;
-                    App.chatManager.copyCode(link);
-                    App.ui.showPopup({ title: 'Успешно', message: 'Реферальная ссылка скопирована!' });
+                    if (App.chatManager.copyCode(link)) {
+                        App.ui.showPopup({ title: 'Успешно', message: 'Реферальная ссылка скопирована!' });
+                    }
                 },
                 shareReferralLink() {
                     const link = App.elements.referralLinkInput.value;
-                    const text = `Привет! Попробуй этого ИИ-бота для создания веб-приложений и получи бонусную генерацию по моей ссылке!`;
+                    if (!link) {
+                        App.ui.showPopup({ title: 'Ошибка', message: 'Не удалось получить реферальную ссылку.' });
+                        return;
+                    }
+                    const text = `Привет получи 1 генерацию веб приложения от меня в YR://DEV`;
                     const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`;
                     App.tg.openTelegramLink(shareUrl);
                 }
             },
             
-            // --- МОДУЛЬ УПРАВЛЕНИЯ TON ---
             tonManager: {
                 init() {
                     App.tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
@@ -1004,18 +1064,23 @@
                         buttonRootId: 'ton-connect-container'
                     });
                 },
+
                 async sendTransaction() {
                     try {
                         const transaction = {
                             validUntil: Math.floor(Date.now() / 1000) + 600,
-                            messages: [{
-                                address: App.config.tonRecipientAddress,
-                                amount: App.config.tonSubscriptionPrice,
-                            }]
+                            messages: [
+                                {
+                                    address: App.config.tonRecipientAddress,
+                                    amount: App.config.tonSubscriptionPrice,
+                                }
+                            ]
                         };
+
                         const result = await App.tonConnectUI.sendTransaction(transaction);
-                        console.log("Transaction sent. BOC:", result.boc);
+                        console.log("Transaction sent:", result.boc);
                         return true;
+
                     } catch (error) {
                         console.error('TON Transaction Error:', error);
                         App.ui.showPopup({ title: 'Ошибка транзакции', message: error.message || 'Не удалось отправить перевод.' });
@@ -1024,24 +1089,19 @@
                 }
             },
 
-            // --- МОДУЛЬ УПРАВЛЕНИЯ ПЛАТЕЖАМИ ---
             paymentManager: {
                 async initiateSubscription() {
                     if (!App.tonConnectUI.connected) {
                         await App.tonConnectUI.openModal();
-                        // После подключения/отклонения модального окна, пользователь должен будет нажать кнопку снова.
                         return;
                     }
                     const success = await App.tonManager.sendTransaction();
+
                     if (success) {
-                        // ВАЖНО: В реальном приложении здесь должна быть проверка транзакции на бэкенде.
-                        // Для демонстрации, мы симулируем проверку и активируем подписку.
-                        App.ui.showGlobalLoader('Проверяем платеж...');
-                        await new Promise(res => setTimeout(res, 3000)); // Симуляция задержки проверки
                         await this.activateSubscription();
-                        App.ui.hideGlobalLoader();
                     }
                 },
+
                 async activateSubscription() {
                     const subscriptionEndDate = new Date();
                     subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + 1);
@@ -1054,25 +1114,19 @@
                     if (updatedProfile) {
                         App.ui.showPopup({ title: 'Успешно!', message: 'Подписка PRO активирована на 1 месяц.'});
                         App.tg.HapticFeedback.notificationOccurred('success');
-                        
-                        // Если у пользователя есть referrer, начисляем ему бонус
-                        if (updatedProfile.referrer_id) {
-                            const { error } = await App.supabase.rpc('add_subscription_bonus', { p_referrer_id: updatedProfile.referrer_id });
-                            if (error) console.error("Failed to add subscription bonus to referrer:", error);
-                        }
-                        
+                        App.ui.renderSubscriptionStatus();
+                        App.ui.updateToolButtonsLockState(); // Update locks immediately
                     } else {
                          App.ui.showPopup({ title: 'Ошибка', message: 'Платеж прошел, но не удалось обновить профиль. Свяжитесь с поддержкой.'});
                          App.tg.HapticFeedback.notificationOccurred('error');
                     }
-                    App.ui.renderSubscriptionStatus();
                 }
             },
 
-            // --- МОДУЛЬ ГЕНЕРАЦИИ ---
             generationManager: {
                 async handleGeneration() {
                     if (App.state.isGenerating) return;
+
                     const prompt = App.elements.promptInput.value.trim();
                     if (!prompt) {
                         App.tg.HapticFeedback.notificationOccurred('error');
@@ -1081,32 +1135,15 @@
                         return;
                     }
                     
-                    const profile = App.state.userProfile;
-                    const hasBonus = profile.bonus_generations > 0;
+                    if (!this.checkLimits()) return;
 
-                    if (!profile.subscription_is_active && !hasBonus) {
-                        if (profile.daily_generations_count >= App.config.maxDailyGenerations) {
-                            this.showLimitPopup('Вы достигли дневного лимита на генерации.'); return;
-                        }
-                        if (profile.monthly_generations_count >= App.config.maxMonthlyGenerations) {
-                            this.showLimitPopup('Вы достигли месячного лимита на генерации.'); return;
-                        }
-                    }
+                    App.ui.toggleGenerationButton(true);
 
-                    App.ui.toggleButtonLoading(App.elements.generateButton, true);
-                    App.state.isGenerating = true;
-
-                    // Списываем генерацию
-                    if (!profile.subscription_is_active) {
-                        const updates = hasBonus 
-                            ? { bonus_generations: profile.bonus_generations - 1 }
-                            : { daily_generations_count: profile.daily_generations_count + 1, monthly_generations_count: profile.monthly_generations_count + 1 };
-                        await App.dataManager.updateUserProfile(updates);
-                    }
+                    await this.deductGeneration();
 
                     const chat = App.state.activeChat;
                     chat.messages.push({ sender: 'user', text: prompt });
-                    if (chat.title === 'Новый чат') {
+                    if (chat.title === 'Новый чат' || chat.title.trim() === '') {
                         chat.title = prompt.substring(0, 30) + (prompt.length > 30 ? '...' : '');
                     }
                     
@@ -1142,16 +1179,47 @@
                     } catch (error) {
                         console.error('Generation Error:', error);
                         indicator.remove();
-                        const errorMessage = error.message.includes('User location is not supported')
-                            ? "Похоже YR://DEV не доступен в вашем регионе, попробуйте включить VPN и перезагрузить приложение"
-                            : `Произошла ошибка: ${error.message}.`;
+                        let errorMessage;
+                        if (error.message.includes('User location is not supported')) {
+                            errorMessage = "Похоже YR://DEV не доступен в вашем регионе, попробуйте включить VPN и перезагрузить приложение";
+                        } else {
+                            errorMessage = `Произошла ошибка: ${error.message}. Убедитесь, что вы указали правильный API-ключ.`;
+                        }
                         App.ui.addMessageToChat(errorMessage, 'ai');
                         chat.messages.push({ sender: 'ai', text: errorMessage });
                         await App.dataManager.saveActiveChat();
                         App.tg.HapticFeedback.notificationOccurred('error');
                     } finally {
-                        App.ui.toggleButtonLoading(App.elements.generateButton, false, '<svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" stroke="none"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>');
-                        App.state.isGenerating = false;
+                        App.ui.toggleGenerationButton(false);
+                    }
+                },
+                checkLimits() {
+                    const profile = App.state.userProfile;
+                    const hasBonusGenerations = profile.bonus_generations > 0;
+
+                    if (!profile.subscription_is_active && !hasBonusGenerations) {
+                        if (profile.daily_generations_count >= App.config.maxDailyGenerations) {
+                            this.showLimitPopup('Вы достигли дневного лимита на генерации.');
+                            return false;
+                        }
+                        if (profile.monthly_generations_count >= App.config.maxMonthlyGenerations) {
+                            this.showLimitPopup('Вы достигли месячного лимита на генерации.');
+                            return false;
+                        }
+                    }
+                    return true;
+                },
+                async deductGeneration() {
+                    const profile = App.state.userProfile;
+                    if (profile.subscription_is_active) return; // Pro users have no limits
+
+                    if (profile.bonus_generations > 0) {
+                        await App.dataManager.updateUserProfile({ bonus_generations: profile.bonus_generations - 1 });
+                    } else {
+                        await App.dataManager.updateUserProfile({ 
+                            daily_generations_count: profile.daily_generations_count + 1,
+                            monthly_generations_count: profile.monthly_generations_count + 1 
+                        });
                     }
                 },
                 showLimitPopup(message) {
@@ -1168,63 +1236,451 @@
                 }
             },
 
-            // --- МОДУЛЬ ИНСТРУМЕНТОВ ---
             toolsManager: {
                 init() {
-                    App.elements.toolNavButtons.forEach(button => button.addEventListener('click', () => this.switchTool(button.dataset.tool)));
+                    App.elements.toolNavButtons.forEach(button => {
+                        button.addEventListener('click', () => this.switchTool(button.dataset.tool));
+                    });
+
                     // JSON
                     App.elements.jsonFormatBtn.addEventListener('click', () => this.formatJSON());
                     App.elements.jsonClearBtn.addEventListener('click', () => this.clearJSON());
+
                     // Base64
                     App.elements.base64EncodeBtn.addEventListener('click', () => this.encodeBase64());
                     App.elements.base64DecodeBtn.addEventListener('click', () => this.decodeBase64());
+
                     // URL
                     App.elements.urlEncodeBtn.addEventListener('click', () => this.encodeURL());
                     App.elements.urlDecodeBtn.addEventListener('click', () => this.decodeURL());
+                    
                     // JWT
                     App.elements.jwtDecodeBtn.addEventListener('click', () => this.decodeJWT());
+
                     // Regex
                     App.elements.regexGenerateBtn.addEventListener('click', () => this.generateRegex());
                     App.elements.regexTestBtn.addEventListener('click', () => this.testRegex());
+                    
                     // Git
                     App.elements.gitGenerateBtn.addEventListener('click', () => this.generateGitCommand());
-                    App.elements.gitCopyBtn.addEventListener('click', () => this.copyGitCommand());
+                    App.elements.gitCopyBtn.addEventListener('click', () => {
+                        const code = App.elements.gitOutput.querySelector('code').textContent;
+                        if(App.chatManager.copyCode(code)) {
+                           App.elements.gitCopyBtn.textContent = 'OK!';
+                           setTimeout(() => { App.elements.gitCopyBtn.textContent = 'Копировать'; }, 1500);
+                        }
+                    });
+
                     // Hash
-                    App.elements.hashInput.addEventListener('input', () => this.debounce(() => this.calculateHashes(), 300));
+                    App.elements.hashInput.addEventListener('input', () => this.calculateHashes());
+
                     // Color
                     ['color-picker', 'color-hex', 'color-rgb', 'color-hsl'].forEach(id => {
-                        const el = document.getElementById(id);
-                        el.addEventListener('input', (e) => this.debounce(() => this.updateColors(e.target.id), 200));
+                        App.elements[id.replace(/-(\w)/g, (_, c) => c.toUpperCase())].addEventListener('input', (e) => this.updateColors(e.target.id));
                     });
                     this.updateColors('color-picker'); // Initial setup
                 },
-                debounce(func, delay) {
-                    clearTimeout(App.state.debounceTimer);
-                    App.state.debounceTimer = setTimeout(func, delay);
-                },
+
                 switchTool(toolName) {
+                    const button = document.querySelector(`.tool-nav-button[data-tool="${toolName}"]`);
+                    if (button.dataset.pro === 'true' && !App.state.userProfile.subscription_is_active) {
+                        App.generationManager.showLimitPopup(`Инструмент "${button.textContent.trim()}" доступен только для PRO-пользователей.`);
+                        return;
+                    }
+
                     App.elements.toolContents.forEach(content => content.classList.toggle('active', content.id === `tool-${toolName}`));
-                    App.elements.toolNavButtons.forEach(button => button.classList.toggle('active', button.dataset.tool === toolName));
+                    App.elements.toolNavButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.tool === toolName));
                 },
-                formatJSON() { /* ... */ },
-                clearJSON() { /* ... */ },
-                encodeBase64() { /* ... */ },
-                decodeBase64() { /* ... */ },
-                encodeURL() { /* ... */ },
-                decodeURL() { /* ... */ },
-                decodeJWT() { /* ... */ },
-                async generateRegex() { /* ... */ },
-                testRegex() { /* ... */ },
-                async generateGitCommand() { /* ... */ },
-                copyGitCommand() { /* ... */ },
-                async calculateHashes() { /* ... */ },
-                updateColors(source) { /* ... */ },
+
+                formatJSON() {
+                    const input = App.elements.jsonInput.value.trim();
+                    const outputEl = App.elements.jsonOutput;
+                    if (!input) {
+                        outputEl.textContent = 'Ошибка: Поле ввода пустое.';
+                        outputEl.style.color = 'red';
+                        return;
+                    }
+                    try {
+                        const parsed = JSON.parse(input);
+                        outputEl.textContent = JSON.stringify(parsed, null, 4);
+                        outputEl.style.color = 'green';
+                    } catch (e) {
+                        outputEl.textContent = `Невалидный JSON: ${e.message}`;
+                        outputEl.style.color = 'red';
+                    }
+                },
+                
+                clearJSON() {
+                    App.elements.jsonInput.value = '';
+                    App.elements.jsonOutput.textContent = '';
+                    App.elements.jsonOutput.style.color = 'inherit';
+                },
+
+                encodeBase64() {
+                    const input = App.elements.base64Input.value;
+                    try {
+                        App.elements.base64Output.value = btoa(unescape(encodeURIComponent(input)));
+                    } catch (e) {
+                        App.elements.base64Output.value = `Ошибка кодирования: ${e.message}`;
+                    }
+                },
+
+                decodeBase64() {
+                    const input = App.elements.base64Input.value;
+                    try {
+                        App.elements.base64Output.value = decodeURIComponent(escape(atob(input)));
+                    } catch (e) {
+                        App.elements.base64Output.value = `Ошибка декодирования: ${e.message}`;
+                    }
+                },
+
+                encodeURL() {
+                    App.elements.urlOutput.value = encodeURIComponent(App.elements.urlInput.value);
+                },
+
+                decodeURL() {
+                    try {
+                        App.elements.urlOutput.value = decodeURIComponent(App.elements.urlInput.value);
+                    } catch (e) {
+                        App.elements.urlOutput.value = `Ошибка декодирования: ${e.message}`;
+                    }
+                },
+                
+                decodeJWT() {
+                    const token = App.elements.jwtInput.value.trim();
+                    const outputEl = App.elements.jwtOutput;
+                    outputEl.innerHTML = '';
+
+                    if (!token) {
+                        outputEl.innerHTML = `<p class="text-red-500">Ошибка: Поле ввода пустое.</p>`;
+                        return;
+                    }
+
+                    try {
+                        const [headerB64, payloadB64, signature] = token.split('.');
+                        if (!headerB64 || !payloadB64 || !signature) {
+                            throw new Error('Неверная структура JWT.');
+                        }
+
+                        const header = JSON.parse(atob(headerB64.replace(/-/g, '+').replace(/_/g, '/')));
+                        const payload = JSON.parse(atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/')));
+
+                        outputEl.innerHTML = `
+                            <div>
+                                <h3 class="font-semibold text-pink-400">Header:</h3>
+                                <pre class="p-2 mt-1 rounded-lg bg-[var(--tg-secondary-bg)] text-sm whitespace-pre-wrap font-mono">${JSON.stringify(header, null, 2)}</pre>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-purple-400">Payload:</h3>
+                                <pre class="p-2 mt-1 rounded-lg bg-[var(--tg-secondary-bg)] text-sm whitespace-pre-wrap font-mono">${JSON.stringify(payload, null, 2)}</pre>
+                            </div>
+                             <div>
+                                <h3 class="font-semibold text-cyan-400">Signature:</h3>
+                                <div class="p-2 mt-1 rounded-lg bg-[var(--tg-secondary-bg)] text-sm whitespace-pre-wrap font-mono break-all">${signature}</div>
+                            </div>
+                        `;
+                    } catch (e) {
+                        outputEl.innerHTML = `<p class="text-red-500">Ошибка декодирования: ${e.message}</p>`;
+                    }
+                },
+
+                async generateRegex() {
+                    const prompt = App.elements.regexPrompt.value.trim();
+                    if (!prompt) {
+                        App.ui.showPopup({title: 'Ошибка', message: 'Пожалуйста, опишите, что должно делать регулярное выражение.'});
+                        return;
+                    }
+                    
+                    const btn = App.elements.regexGenerateBtn;
+                    btn.innerHTML = `<span class="loader"></span><span class="ml-2">Генерация...</span>`;
+                    btn.disabled = true;
+
+                    try {
+                        const systemPrompt = App.api.createRegexGenerationPrompt(prompt);
+                        const response = await App.api.callGemini(systemPrompt);
+                        
+                        const regexMatch = response.match(/\/(.*?)\/([gimyus]*)/) || response.match(/```(?:regex|)\n\/(.*?)\/([gimyus]*)\n```/s) || response.match(/```(?:regex|)\n(.*?)\n```/s);
+
+                        if (!regexMatch || !regexMatch[1]) {
+                           throw new Error("Не удалось извлечь регулярное выражение из ответа ИИ.");
+                        }
+                        
+                        const regexPattern = regexMatch[1];
+                        
+                        App.elements.regexOutput.textContent = `/${regexPattern}/`;
+                        App.elements.regexOutputContainer.classList.remove('hidden');
+                        App.elements.regexTestResult.innerHTML = '';
+                        
+                    } catch (error) {
+                        console.error('Regex Generation Error:', error);
+                        App.ui.showPopup({title: 'Ошибка генерации', message: error.message});
+                    } finally {
+                        btn.innerHTML = 'Сгенерировать';
+                        btn.disabled = false;
+                    }
+                },
+                
+                testRegex() {
+                    const regexString = App.elements.regexOutput.textContent.trim();
+                    const testString = App.elements.regexTestString.value;
+                    const resultEl = App.elements.regexTestResult;
+
+                    if (!regexString) {
+                        resultEl.innerHTML = `<p class="text-yellow-500">Сначала сгенерируйте Regex.</p>`;
+                        return;
+                    }
+
+                    try {
+                        const match = regexString.match(/\/(.*?)\/([gimyus]*)/);
+                        const regex = new RegExp(match[1], match[2]);
+                        const matches = testString.match(regex);
+
+                        if (matches) {
+                            let highlightedString = testString.replace(regex, (m) => `<span class="bg-yellow-300 text-black px-1 rounded">${m}</span>`);
+                            resultEl.innerHTML = `<p class="text-green-500 font-bold">Найдено совпадений: ${matches.length}</p><div class="mt-2 p-2 bg-[var(--tg-secondary-bg)] rounded">${highlightedString}</div>`;
+                        } else {
+                            resultEl.innerHTML = `<p class="text-red-500">Совпадений не найдено.</p>`;
+                        }
+                    } catch (e) {
+                         resultEl.innerHTML = `<p class="text-red-500">Ошибка Regex: ${e.message}</p>`;
+                    }
+                },
+                
+                async generateGitCommand() {
+                    const prompt = App.elements.gitPrompt.value.trim();
+                    if (!prompt) {
+                        App.ui.showPopup({title: 'Ошибка', message: 'Пожалуйста, опишите, что вы хотите сделать.'});
+                        return;
+                    }
+                    const btn = App.elements.gitGenerateBtn;
+                    btn.innerHTML = `<span class="loader"></span><span class="ml-2">Генерация...</span>`;
+                    btn.disabled = true;
+
+                    try {
+                        const systemPrompt = App.api.createGitCommandPrompt(prompt);
+                        const response = await App.api.callGemini(systemPrompt);
+                        const commandMatch = response.match(/```(?:bash|sh|git)?\n([\s\S]*?)\n```/s) || response.match(/`([^`]+)`/);
+                        const command = commandMatch ? commandMatch[1].trim() : response.trim();
+
+                        App.elements.gitOutput.querySelector('code').textContent = command;
+                        App.elements.gitOutputContainer.classList.remove('hidden');
+                    } catch (error) {
+                        console.error('Git Command Generation Error:', error);
+                        App.ui.showPopup({title: 'Ошибка генерации', message: error.message});
+                    } finally {
+                        btn.innerHTML = 'Сгенерировать';
+                        btn.disabled = false;
+                    }
+                },
+
+                async calculateHashes() {
+                    const input = App.elements.hashInput.value;
+                    
+                    // MD5 (using external library)
+                    App.elements.hashMd5.textContent = md5(input);
+
+                    // SHA-256 (using Web Crypto API)
+                    try {
+                        const encoder = new TextEncoder();
+                        const data = encoder.encode(input);
+                        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                        const hashArray = Array.from(new Uint8Array(hashBuffer));
+                        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                        App.elements.hashSha256.textContent = hashHex;
+                    } catch (e) {
+                        App.elements.hashSha256.textContent = 'Ошибка при вычислении SHA-256';
+                        console.error(e);
+                    }
+                },
+
+                updateColors(source) {
+                    if (App.state.isColorUpdating) return;
+                    App.state.isColorUpdating = true;
+
+                    const picker = App.elements.colorPicker;
+                    const hexInput = App.elements.colorHex;
+                    const rgbInput = App.elements.colorRgb;
+                    const hslInput = App.elements.colorHsl;
+
+                    let hex, rgb, hsl;
+
+                    try {
+                        if (source === 'color-picker') {
+                            hex = picker.value;
+                            rgb = this.hexToRgb(hex);
+                            hsl = this.rgbToHsl(rgb.r, rgb.g, rgb.b);
+                        } else if (source === 'color-hex') {
+                            hex = hexInput.value;
+                            if (!/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(hex)) throw new Error();
+                            rgb = this.hexToRgb(hex);
+                            hsl = this.rgbToHsl(rgb.r, rgb.g, rgb.b);
+                        } else if (source === 'color-rgb') {
+                            const match = rgbInput.value.match(/(\d+),\s*(\d+),\s*(\d+)/);
+                            if (!match) throw new Error();
+                            rgb = { r: parseInt(match[1]), g: parseInt(match[2]), b: parseInt(match[3]) };
+                            if (rgb.r > 255 || rgb.g > 255 || rgb.b > 255) throw new Error();
+                            hex = this.rgbToHex(rgb.r, rgb.g, rgb.b);
+                            hsl = this.rgbToHsl(rgb.r, rgb.g, rgb.b);
+                        } else if (source === 'color-hsl') {
+                            const match = hslInput.value.match(/(\d+),\s*(\d+)%?,\s*(\d+)%?/);
+                            if (!match) throw new Error();
+                            hsl = { h: parseInt(match[1]), s: parseInt(match[2]), l: parseInt(match[3]) };
+                            if (hsl.h > 360 || hsl.s > 100 || hsl.l > 100) throw new Error();
+                            rgb = this.hslToRgb(hsl.h, hsl.s, hsl.l);
+                            hex = this.rgbToHex(rgb.r, rgb.g, rgb.b);
+                        }
+
+                        if (source !== 'color-picker') picker.value = hex;
+                        if (source !== 'color-hex') hexInput.value = hex;
+                        if (source !== 'color-rgb') rgbInput.value = `${rgb.r}, ${rgb.g}, ${rgb.b}`;
+                        if (source !== 'color-hsl') hslInput.value = `${hsl.h}, ${hsl.s}%, ${hsl.l}%`;
+                        
+                        [hexInput, rgbInput, hslInput].forEach(el => el.style.borderColor = 'transparent');
+
+                    } catch (e) {
+                        document.getElementById(source).style.borderColor = 'red';
+                    } finally {
+                        App.state.isColorUpdating = false;
+                    }
+                },
+
+                hexToRgb(hex) {
+                    let r = 0, g = 0, b = 0;
+                    if (hex.length == 4) {
+                        r = "0x" + hex[1] + hex[1];
+                        g = "0x" + hex[2] + hex[2];
+                        b = "0x" + hex[3] + hex[3];
+                    } else if (hex.length == 7) {
+                        r = "0x" + hex[1] + hex[2];
+                        g = "0x" + hex[3] + hex[4];
+                        b = "0x" + hex[5] + hex[6];
+                    }
+                    return { r: +r, g: +g, b: +b };
+                },
+
+                rgbToHex(r, g, b) {
+                    return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toLowerCase();
+                },
+                
+                rgbToHsl(r, g, b) {
+                    r /= 255; g /= 255; b /= 255;
+                    let max = Math.max(r, g, b), min = Math.min(r, g, b);
+                    let h, s, l = (max + min) / 2;
+                    if (max == min) {
+                        h = s = 0;
+                    } else {
+                        let d = max - min;
+                        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                        switch(max) {
+                            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                            case g: h = (b - r) / d + 2; break;
+                            case b: h = (r - g) / d + 4; break;
+                        }
+                        h /= 6;
+                    }
+                    return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
+                },
+
+                hslToRgb(h, s, l) {
+                    h /= 360; s /= 100; l /= 100;
+                    let r, g, b;
+                    if (s == 0) {
+                        r = g = b = l;
+                    } else {
+                        const hue2rgb = (p, q, t) => {
+                            if (t < 0) t += 1;
+                            if (t > 1) t -= 1;
+                            if (t < 1/6) return p + (q - p) * 6 * t;
+                            if (t < 1/2) return q;
+                            if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+                            return p;
+                        }
+                        let q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+                        let p = 2 * l - q;
+                        r = hue2rgb(p, q, h + 1/3);
+                        g = hue2rgb(p, q, h);
+                        b = hue2rgb(p, q, h - 1/3);
+                    }
+                    return { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255) };
+                },
+                
+                // PRO Tool Functions
+                async generateImage() {
+                    const prompt = App.elements.imagePrompt.value.trim();
+                    if (!prompt) {
+                        App.ui.showPopup({title: 'Ошибка', message: 'Пожалуйста, опишите изображение для генерации.'});
+                        return;
+                    }
+                    
+                    if (!App.generationManager.checkLimits()) return;
+                    
+                    const btn = App.elements.imageGenerateBtn;
+                    const loader = App.elements.imageLoader;
+                    const outputImg = App.elements.imageOutput;
+
+                    btn.disabled = true;
+                    loader.classList.remove('hidden');
+                    loader.classList.add('flex');
+                    outputImg.classList.add('hidden');
+
+                    try {
+                        await App.generationManager.deductGeneration();
+                        const imageData = await App.api.callImagen(prompt);
+                        outputImg.src = `data:image/png;base64,${imageData}`;
+                        outputImg.classList.remove('hidden');
+                    } catch (error) {
+                        console.error('Image Generation Error:', error);
+                        App.ui.showPopup({title: 'Ошибка генерации изображения', message: error.message});
+                    } finally {
+                        btn.disabled = false;
+                        loader.classList.add('hidden');
+                        loader.classList.remove('flex');
+                    }
+                },
+
+                async runCodeDoctor() {
+                    const code = App.elements.codeDoctorInput.value.trim();
+                    if (!code) {
+                        App.ui.showPopup({title: 'Ошибка', message: 'Пожалуйста, вставьте код для анализа.'});
+                        return;
+                    }
+                    
+                    if (!App.generationManager.checkLimits()) return;
+
+                    const action = App.elements.codeDoctorAction.value;
+                    const btn = App.elements.codeDoctorRunBtn;
+                    const outputContainer = App.elements.codeDoctorOutputContainer;
+                    const outputEl = App.elements.codeDoctorOutput;
+
+                    btn.innerHTML = `<span class="loader"></span><span class="ml-2">Анализ...</span>`;
+                    btn.disabled = true;
+                    outputContainer.classList.add('hidden');
+
+                    try {
+                        await App.generationManager.deductGeneration();
+                        const systemPrompt = App.api.createCodeDoctorPrompt(code, action);
+                        const response = await App.api.callGemini(systemPrompt);
+                        
+                        outputEl.textContent = response;
+                        Prism.highlightElement(outputEl);
+                        outputContainer.classList.remove('hidden');
+
+                    } catch (error) {
+                        console.error('Code Doctor Error:', error);
+                        App.ui.showPopup({title: 'Ошибка анализа кода', message: error.message});
+                    } finally {
+                        btn.innerHTML = 'Выполнить';
+                        btn.disabled = false;
+                    }
+                }
             },
 
-            // --- МОДУЛЬ API ---
+
             api: {
                 createCodeGenerationPrompt(userPrompt, existingCode) {
-                    const baseInstruction = `Твоя задача - быть экспертом по созданию html блоков, компонентов, приложений. Ты должен вернуть ТОЛЬКО HTML-код в одном блоке \`\`\`html ... \`\`\`. Без лишних слов, объяснений или комментариев вне кода. Код должен быть полным и самодостаточным (включая HTML, CSS в <style> и JS в <script>). Используй Tailwind CSS для стилизации.`;
+                    const isPro = App.state.userProfile?.subscription_is_active;
+                    const modelUsed = isPro ? 'Gemini 1.5 Pro' : 'Gemini 1.5 Flash';
+                    const baseInstruction = `Твоя задача - быть экспертом по созданию html блоков, компонентов, приложений. Ты должен вернуть ТОЛЬКО HTML-код в одном блоке \`\`\`html ... \`\`\`. Без лишних слов, объяснений или комментариев вне кода. Код должен быть полным и самодостаточным (включая HTML, CSS в <style> и JS в <script>). Используй Tailwind CSS для стилизации. Ты работаешь на модели ${modelUsed}.`;
                     return existingCode
                         ? `${baseInstruction}\nВот существующий код:\n\n${existingCode}\n\nЗапрос пользователя: "${userPrompt}".\nИзмени код и верни новую полную версию.`
                         : `${baseInstruction}\nЗапрос пользователя: "${userPrompt}".\nСоздай код с нуля.`;
@@ -1235,179 +1691,89 @@
                 createGitCommandPrompt(userPrompt) {
                     return `Ты - эксперт по Git. По запросу пользователя создай ОДНУ наиболее подходящую команду Git. Верни ТОЛЬКО саму команду, без объяснений, примеров или блоков кода. Например, если пользователь просит 'откатить последний коммит, но оставить изменения', верни просто 'git reset --soft HEAD~1'. Запрос пользователя: "${userPrompt}"`;
                 },
+                createCodeDoctorPrompt(code, action) {
+                    let actionText = '';
+                    switch (action) {
+                        case 'explain':
+                            actionText = 'Подробно объясни этот код. Опиши его структуру, логику работы и назначение каждой части. Ответ дай в формате Markdown.';
+                            break;
+                        case 'refactor':
+                            actionText = 'Выполни рефакторинг этого кода. Улучши его читаемость, производительность и структуру. Верни только обновленный код в блоке ```...``` с указанием языка.';
+                            break;
+                        case 'debug':
+                            actionText = 'Проанализируй этот код на наличие ошибок, багов или потенциальных проблем. Укажи найденные проблемы и предложи варианты их исправления. Ответ дай в формате Markdown.';
+                            break;
+                    }
+                    return `Ты - опытный программист-наставник. Тебе предоставлен фрагмент кода. Твоя задача: ${actionText}\n\nВот код для анализа:\n\`\`\`\n${code}\n\`\`\``;
+                },
                 async callGemini(prompt, retries = 3, delay = 1000) {
-                    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${App.config.geminiModel}:generateContent?key=`; // API ключ не нужен, он будет предоставлен средой выполнения
+                    const isPro = App.state.userProfile?.subscription_is_active;
+                    const model = isPro ? App.config.proModelName : App.config.freeModelName;
+                    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${App.config.apiKey}`;
                     const payload = { contents: [{ parts: [{ text: prompt }] }] };
 
-                    for (let i = 0; i < retries; i++) {
-                        try {
-                            const response = await fetch(API_URL, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify(payload)
-                            });
-                            if (!response.ok) {
-                                if (response.status >= 500 || response.status === 429) {
-                                    throw new Error(`Server error: ${response.status}`); // Будет повторная попытка
-                                }
+                    try {
+                        const response = await fetch(API_URL, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        if (!response.ok) {
+                            if (response.status < 500 && response.status !== 429) {
                                 const errorData = await response.json();
-                                throw new Error(errorData.error?.message || `HTTP ошибка: ${response.status}`); // Не будет повторной попытки
+                                throw new Error(errorData.error?.message || `HTTP ошибка: ${response.status}`);
                             }
-                            const data = await response.json();
-                            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-                            if (!text) throw new Error('Получен неверный или пустой ответ от API.');
-                            return text;
-                        } catch (error) {
-                            console.warn(`Attempt ${i+1} failed. Retrying... Error: ${error.message}`);
-                            if (i === retries - 1) throw error; // Пробрасываем ошибку после последней попытки
-                            await new Promise(res => setTimeout(res, delay * (i + 1)));
+                            throw new Error(`Server error: ${response.status}`);
+                        }
+                        const data = await response.json();
+                        if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
+                           throw new Error('Получен неверный или пустой ответ от API.');
+                        }
+                        return data.candidates[0].content.parts[0].text;
+                    } catch (error) {
+                        if (retries > 0) {
+                            console.warn(`Retrying... (${retries} left). Error: ${error.message}`);
+                            await new Promise(res => setTimeout(res, delay));
+                            return this.callGemini(prompt, retries - 1, delay * 2);
+                        } else {
+                            throw error;
+                        }
+                    }
+                },
+                 async callImagen(prompt, retries = 3, delay = 1000) {
+                    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${App.config.imageModelName}:predict?key=${App.config.apiKey}`;
+                    const payload = { 
+                        instances: [{ prompt: prompt }],
+                        parameters: { "sampleCount": 1 }
+                    };
+
+                    try {
+                        const response = await fetch(API_URL, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            throw new Error(errorData.error?.message || `HTTP ошибка: ${response.status}`);
+                        }
+                        const data = await response.json();
+                        if (!data.predictions?.[0]?.bytesBase64Encoded) {
+                           throw new Error('API не вернуло изображение.');
+                        }
+                        return data.predictions[0].bytesBase64Encoded;
+                    } catch (error) {
+                        if (retries > 0) {
+                            console.warn(`Retrying image generation... (${retries} left). Error: ${error.message}`);
+                            await new Promise(res => setTimeout(res, delay));
+                            return this.callImagen(prompt, retries - 1, delay * 2);
+                        } else {
+                            throw error;
                         }
                     }
                 }
             }
         };
-
-        // --- Заполнение методов toolsManager, которые остались без изменений для краткости ---
-        Object.assign(App.toolsManager, {
-            formatJSON() {
-                const input = App.elements.jsonInput.value.trim();
-                const outputEl = App.elements.jsonOutput;
-                if (!input) { outputEl.textContent = ''; return; }
-                try {
-                    const parsed = JSON.parse(input);
-                    outputEl.textContent = JSON.stringify(parsed, null, 4);
-                    outputEl.style.color = 'var(--tg-text)';
-                } catch (e) {
-                    outputEl.textContent = `Невалидный JSON: ${e.message}`;
-                    outputEl.style.color = 'red';
-                }
-            },
-            clearJSON() {
-                App.elements.jsonInput.value = '';
-                App.elements.jsonOutput.textContent = '';
-                App.elements.jsonOutput.style.color = 'inherit';
-            },
-            encodeBase64() {
-                const input = App.elements.base64Input.value;
-                try {
-                    App.elements.base64Output.value = btoa(unescape(encodeURIComponent(input)));
-                } catch (e) { App.elements.base64Output.value = `Ошибка: ${e.message}`; }
-            },
-            decodeBase64() {
-                const input = App.elements.base64Input.value;
-                try {
-                    App.elements.base64Output.value = decodeURIComponent(escape(atob(input)));
-                } catch (e) { App.elements.base64Output.value = `Ошибка: ${e.message}`; }
-            },
-            encodeURL() { App.elements.urlOutput.value = encodeURIComponent(App.elements.urlInput.value); },
-            decodeURL() {
-                try { App.elements.urlOutput.value = decodeURIComponent(App.elements.urlInput.value); } 
-                catch (e) { App.elements.urlOutput.value = `Ошибка: ${e.message}`; }
-            },
-            decodeJWT() {
-                const token = App.elements.jwtInput.value.trim();
-                const outputEl = App.elements.jwtOutput;
-                outputEl.innerHTML = '';
-                if (!token) return;
-                try {
-                    const [headerB64, payloadB64, signature] = token.split('.');
-                    if (!headerB64 || !payloadB64 || !signature) throw new Error('Неверная структура JWT.');
-                    const header = JSON.parse(atob(headerB64.replace(/-/g, '+').replace(/_/g, '/')));
-                    const payload = JSON.parse(atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/')));
-                    outputEl.innerHTML = `
-                        <div><h3 class="font-semibold text-pink-400">Header:</h3><pre class="p-2 mt-1 rounded-lg bg-[var(--tg-secondary-bg)] text-sm whitespace-pre-wrap font-mono">${JSON.stringify(header, null, 2)}</pre></div>
-                        <div><h3 class="font-semibold text-purple-400 mt-2">Payload:</h3><pre class="p-2 mt-1 rounded-lg bg-[var(--tg-secondary-bg)] text-sm whitespace-pre-wrap font-mono">${JSON.stringify(payload, null, 2)}</pre></div>
-                    `;
-                } catch (e) { outputEl.innerHTML = `<p class="text-red-500">Ошибка декодирования: ${e.message}</p>`; }
-            },
-            async generateRegex() {
-                const prompt = App.elements.regexPrompt.value.trim();
-                if (!prompt) return;
-                const btn = App.elements.regexGenerateBtn;
-                App.ui.toggleButtonLoading(btn, true);
-                try {
-                    const systemPrompt = App.api.createRegexGenerationPrompt(prompt);
-                    const response = await App.api.callGemini(systemPrompt);
-                    const regexMatch = response.match(/\/(.*?)\/([gimyus]*)/);
-                    if (!regexMatch || !regexMatch[1]) throw new Error("Не удалось извлечь Regex из ответа ИИ.");
-                    App.elements.regexOutput.textContent = regexMatch[0];
-                    App.elements.regexOutputContainer.classList.remove('hidden');
-                } catch (error) { App.ui.showPopup({title: 'Ошибка генерации', message: error.message}); } 
-                finally { App.ui.toggleButtonLoading(btn, false, 'Сгенерировать'); }
-            },
-            testRegex() {
-                const regexString = App.elements.regexOutput.textContent.trim();
-                const testString = App.elements.regexTestString.value;
-                const resultEl = App.elements.regexTestResult;
-                if (!regexString) return;
-                try {
-                    const match = regexString.match(/\/(.*?)\/([gimyus]*)/);
-                    const regex = new RegExp(match[1], match[2]);
-                    const matches = testString.match(regex);
-                    if (matches) {
-                        let highlightedString = testString.replace(regex, (m) => `<span class="bg-yellow-300 text-black px-1 rounded">${m}</span>`);
-                        resultEl.innerHTML = `<p class="text-green-500 font-bold">Найдено совпадений: ${matches.length}</p><div class="mt-2 p-2 bg-[var(--tg-secondary-bg)] rounded">${highlightedString}</div>`;
-                    } else { resultEl.innerHTML = `<p class="text-red-500">Совпадений не найдено.</p>`; }
-                } catch (e) { resultEl.innerHTML = `<p class="text-red-500">Ошибка Regex: ${e.message}</p>`; }
-            },
-            async generateGitCommand() {
-                const prompt = App.elements.gitPrompt.value.trim();
-                if (!prompt) return;
-                const btn = App.elements.gitGenerateBtn;
-                App.ui.toggleButtonLoading(btn, true);
-                try {
-                    const systemPrompt = App.api.createGitCommandPrompt(prompt);
-                    const response = await App.api.callGemini(systemPrompt);
-                    const commandMatch = response.match(/```(?:bash|sh|git)?\n([\s\S]*?)\n```/s) || response.match(/`([^`]+)`/);
-                    const command = commandMatch ? commandMatch[1].trim() : response.trim();
-                    App.elements.gitOutput.querySelector('code').textContent = command;
-                    App.elements.gitOutputContainer.classList.remove('hidden');
-                } catch (error) { App.ui.showPopup({title: 'Ошибка генерации', message: error.message}); } 
-                finally { App.ui.toggleButtonLoading(btn, false, 'Сгенерировать'); }
-            },
-            copyGitCommand() {
-                const code = App.elements.gitOutput.querySelector('code').textContent;
-                App.chatManager.copyCode(code);
-                App.elements.gitCopyBtn.textContent = 'OK!';
-                setTimeout(() => { App.elements.gitCopyBtn.textContent = 'Копировать'; }, 1500);
-            },
-            async calculateHashes() {
-                const input = App.elements.hashInput.value;
-                App.elements.hashMd5.textContent = md5(input);
-                try {
-                    const encoder = new TextEncoder();
-                    const data = encoder.encode(input);
-                    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-                    const hashArray = Array.from(new Uint8Array(hashBuffer));
-                    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-                    App.elements.hashSha256.textContent = hashHex;
-                } catch (e) { App.elements.hashSha256.textContent = 'Ошибка'; }
-            },
-            updateColors(source) {
-                if (App.state.isColorUpdating) return;
-                App.state.isColorUpdating = true;
-                const picker = App.elements.colorPicker, hexInput = App.elements.colorHex, rgbInput = App.elements.colorRgb, hslInput = App.elements.colorHsl;
-                let hex, rgb, hsl;
-                try {
-                    if (source === 'color-picker') { hex = picker.value; rgb = this.hexToRgb(hex); hsl = this.rgbToHsl(rgb.r, rgb.g, rgb.b); }
-                    else if (source === 'color-hex') { hex = hexInput.value; if (!/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(hex)) throw new Error(); rgb = this.hexToRgb(hex); hsl = this.rgbToHsl(rgb.r, rgb.g, rgb.b); }
-                    else if (source === 'color-rgb') { const m = rgbInput.value.match(/(\d+),\s*(\d+),\s*(\d+)/); if (!m) throw new Error(); rgb = { r: +m[1], g: +m[2], b: +m[3] }; if (rgb.r > 255 || rgb.g > 255 || rgb.b > 255) throw new Error(); hex = this.rgbToHex(rgb.r, rgb.g, rgb.b); hsl = this.rgbToHsl(rgb.r, rgb.g, rgb.b); }
-                    else if (source === 'color-hsl') { const m = hslInput.value.match(/(\d+),\s*(\d+)%?,\s*(\d+)%?/); if (!m) throw new Error(); hsl = { h: +m[1], s: +m[2], l: +m[3] }; if (hsl.h > 360 || hsl.s > 100 || hsl.l > 100) throw new Error(); rgb = this.hslToRgb(hsl.h, hsl.s, hsl.l); hex = this.rgbToHex(rgb.r, rgb.g, rgb.b); }
-                    if (source !== 'color-picker') picker.value = hex;
-                    if (source !== 'color-hex') hexInput.value = hex;
-                    if (source !== 'color-rgb') rgbInput.value = `${rgb.r}, ${rgb.g}, ${rgb.b}`;
-                    if (source !== 'color-hsl') hslInput.value = `${hsl.h}, ${hsl.s}%, ${hsl.l}%`;
-                    [hexInput, rgbInput, hslInput].forEach(el => el.style.borderColor = 'transparent');
-                } catch (e) { document.getElementById(source).style.borderColor = 'red'; } 
-                finally { App.state.isColorUpdating = false; }
-            },
-            hexToRgb(h) { let r = 0, g = 0, b = 0; if (h.length == 4) { r = "0x" + h[1] + h[1]; g = "0x" + h[2] + h[2]; b = "0x" + h[3] + h[3]; } else if (h.length == 7) { r = "0x" + h[1] + h[2]; g = "0x" + h[3] + h[4]; b = "0x" + h[5] + h[6]; } return { r: +r, g: +g, b: +b }; },
-            rgbToHex(r, g, b) { return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toLowerCase(); },
-            rgbToHsl(r, g, b) { r /= 255; g /= 255; b /= 255; let max = Math.max(r, g, b), min = Math.min(r, g, b); let h, s, l = (max + min) / 2; if (max == min) { h = s = 0; } else { let d = max - min; s = l > 0.5 ? d / (2 - max - min) : d / (max + min); switch(max) { case r: h = (g - b) / d + (g < b ? 6 : 0); break; case g: h = (b - r) / d + 2; break; case b: h = (r - g) / d + 4; break; } h /= 6; } return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) }; },
-            hslToRgb(h, s, l) { h /= 360; s /= 100; l /= 100; let r, g, b; if (s == 0) { r = g = b = l; } else { const hue2rgb = (p, q, t) => { if (t < 0) t += 1; if (t > 1) t -= 1; if (t < 1/6) return p + (q - p) * 6 * t; if (t < 1/2) return q; if (t < 2/3) return p + (q - p) * (2/3 - t) * 6; return p; }; let q = l < 0.5 ? l * (1 + s) : l + s - l * s; let p = 2 * l - q; r = hue2rgb(p, q, h + 1/3); g = hue2rgb(p, q, h); b = hue2rgb(p, q, h - 1/3); } return { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255) }; }
-        });
-
-        // --- ЗАПУСК ПРИЛОЖЕНИЯ ---
         App.init();
     });
     </script>
