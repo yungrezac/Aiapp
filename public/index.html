@@ -109,6 +109,50 @@
             opacity: 0.6;
             cursor: not-allowed;
         }
+        /* Стили для кнопок языков */
+        .language-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .language-button {
+            padding: 6px 12px;
+            border-radius: 16px;
+            background-color: var(--tg-secondary-bg);
+            color: var(--tg-text);
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .language-button.active {
+            background-color: var(--tg-button);
+            color: var(--tg-button-text);
+        }
+        /* Стили для директории */
+        .directory-item {
+            padding: 8px 12px;
+            border-radius: 8px;
+            margin-bottom: 4px;
+            background-color: var(--tg-secondary-bg);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .directory-item-name {
+            font-weight: 500;
+        }
+        .directory-item-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .directory-item-action {
+            padding: 2px 6px;
+            border-radius: 4px;
+            background-color: var(--tg-bg);
+            font-size: 12px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body class="flex flex-col h-screen">
@@ -129,26 +173,74 @@
                 <button id="page-new-chat-button" class="p-2 rounded-full hover:bg-[var(--tg-secondary-bg)] btn-transition" aria-label="Новый чат"><svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg></button>
             </div>
             <div id="chat-history" class="flex-grow p-4 flex flex-col space-y-2 overflow-y-auto"></div>
-            <div class="flex-shrink-0 flex items-center space-x-2 p-2 bg-[var(--tg-bg)] border-t border-[var(--tg-secondary-bg)]">
-                <input id="prompt-input" type="text" placeholder="Ваш запрос..." class="w-full p-3 rounded-full focus:outline-none bg-[var(--tg-secondary-bg)] text-[var(--tg-text)] placeholder-[var(--tg-hint)] transition-transform">
-                <button id="generate-button" class="p-3 rounded-full transition-opacity btn-transition flex-shrink-0 bg-[var(--tg-button)] text-[var(--tg-button-text)]" aria-label="Сгенерировать"><svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" stroke="none"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
+            <div class="flex-shrink-0 flex flex-col p-2 bg-[var(--tg-bg)] border-t border-[var(--tg-secondary-bg)]">
+                <div id="language-buttons" class="language-buttons">
+                    <button class="language-button active" data-lang="html">HTML</button>
+                    <button class="language-button" data-lang="javascript">JavaScript</button>
+                    <button class="language-button" data-lang="python">Python</button>
+                    <button class="language-button" data-lang="java">Java</button>
+                    <button class="language-button" data-lang="php">PHP</button>
+                    <button class="language-button" data-lang="ruby">Ruby</button>
+                    <button class="language-button" data-lang="csharp">C#</button>
+                    <button class="language-button" data-lang="cpp">C++</button>
+                    <button class="language-button" data-lang="go">Go</button>
+                    <button class="language-button" data-lang="rust">Rust</button>
+                    <button class="language-button" data-lang="swift">Swift</button>
+                    <button class="language-button" data-lang="kotlin">Kotlin</button>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <input id="prompt-input" type="text" placeholder="Ваш запрос..." class="w-full p-3 rounded-full focus:outline-none bg-[var(--tg-secondary-bg)] text-[var(--tg-text)] placeholder-[var(--tg-hint)] transition-transform">
+                    <button id="generate-button" class="p-3 rounded-full transition-opacity btn-transition flex-shrink-0 bg-[var(--tg-button)] text-[var(--tg-button-text)]" aria-label="Сгенерировать"><svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" stroke="none"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
+                </div>
             </div>
         </div>
 
-        <!-- СТРАНИЦA 2: СОЗДАНИЕ (КОД + ПРЕВЬЮ) -->
+        <!-- СТРАНИЦA 2: СОЗДАНИЕ (КОД + ПРЕВЬЮ + ДИРЕКТОРИЯ) -->
         <div id="creation-page" class="page flex-col h-full">
             <div class="flex-shrink-0 flex border-b border-[var(--tg-secondary-bg)] bg-[var(--tg-bg)]">
-                <button data-view="code" class="sub-nav-button active w-1/2 p-4 text-center text-[var(--tg-hint)]">Код</button>
-                <button data-view="preview" class="sub-nav-button w-1/2 p-4 text-center text-[var(--tg-hint)]">Превью</button>
+                <button data-view="code" class="sub-nav-button active w-1/3 p-4 text-center text-[var(--tg-hint)]">Код</button>
+                <button data-view="preview" class="sub-nav-button w-1/3 p-4 text-center text-[var(--tg-hint)]">Превью</button>
+                <button data-view="directory" class="sub-nav-button w-1/3 p-4 text-center text-[var(--tg-hint)]">Директория</button>
             </div>
             <div id="code-view" class="flex-grow flex flex-col overflow-hidden">
                 <div class="p-2 flex-shrink-0 flex justify-end items-center space-x-2 bg-[var(--tg-bg)] border-b border-[var(--tg-secondary-bg)]">
                     <button id="copy-button" class="bg-[var(--tg-button)] text-[var(--tg-button-text)] px-4 py-2 rounded-lg text-sm btn-transition">Копировать</button>
+                    <button id="download-button" class="bg-[var(--tg-button)] text-[var(--tg-button-text)] px-4 py-2 rounded-lg text-sm btn-transition">Скачать</button>
                 </div>
                 <div class="flex-grow overflow-auto bg-[#2d2d2d]"><pre><code id="code-output" class="language-html text-sm p-4 block whitespace-pre-wrap font-mono"></code></pre></div>
             </div>
             <div id="preview-view" class="flex-grow hidden bg-white relative">
                 <iframe id="preview-iframe" class="w-full h-full border-0"></iframe>
+            </div>
+            <div id="directory-view" class="flex-grow hidden p-4 overflow-y-auto">
+                <div class="mb-4">
+                    <h3 class="text-lg font-bold mb-2">Созданные файлы</h3>
+                    <div id="directory-list" class="space-y-2">
+                        <!-- Файлы будут добавляться динамически -->
+                    </div>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold mb-2">Добавить новый файл</h3>
+                    <div class="flex space-x-2 mb-2">
+                        <input id="new-filename-input" type="text" placeholder="Имя файла" class="flex-grow p-2 rounded-lg bg-[var(--tg-secondary-bg)] focus:outline-none">
+                        <select id="new-filetype-select" class="p-2 rounded-lg bg-[var(--tg-secondary-bg)] focus:outline-none">
+                            <option value="html">HTML</option>
+                            <option value="js">JavaScript</option>
+                            <option value="css">CSS</option>
+                            <option value="py">Python</option>
+                            <option value="java">Java</option>
+                            <option value="php">PHP</option>
+                            <option value="rb">Ruby</option>
+                            <option value="cs">C#</option>
+                            <option value="cpp">C++</option>
+                            <option value="go">Go</option>
+                            <option value="rs">Rust</option>
+                            <option value="swift">Swift</option>
+                            <option value="kt">Kotlin</option>
+                        </select>
+                    </div>
+                    <button id="add-file-button" class="w-full bg-[var(--tg-button)] text-[var(--tg-button-text)] py-2 px-4 rounded-lg btn-transition">Добавить файл</button>
+                </div>
             </div>
         </div>
 
@@ -387,7 +479,14 @@
                 activeChat: null,
                 myReferrals: [],
                 isGenerating: false,
-                isColorUpdating: false // Флаг для предотвращения рекурсивных обновлений цвета
+                isColorUpdating: false, // Флаг для предотвращения рекурсивных обновлений цвета
+                selectedLanguage: 'html',
+                projectFiles: [
+                    { name: 'index.html', type: 'html', content: '<!DOCTYPE html>\n<html>\n<head>\n  <title>My App</title>\n</head>\n<body>\n  <h1>Hello World!</h1>\n</body>\n</html>' },
+                    { name: 'style.css', type: 'css', content: 'body {\n  font-family: Arial, sans-serif;\n  margin: 0;\n  padding: 20px;\n}' },
+                    { name: 'app.js', type: 'js', content: 'console.log("App loaded");' }
+                ],
+                activeFileIndex: 0
             },
             elements: {},
             tg: window.Telegram.WebApp,
@@ -431,9 +530,10 @@
             cacheDOMElements() {
                 const ids = [
                     'chat-page', 'creation-page', 'profile-page', 'tools-page',
-                    'chat-history', 'prompt-input', 
-                    'generate-button', 'code-view', 'preview-view', 'code-output', 'preview-iframe', 
-                    'copy-button', 'subscription-status', 'chat-list', 'chat-title',
+                    'chat-history', 'prompt-input', 'language-buttons',
+                    'generate-button', 'code-view', 'preview-view', 'directory-view', 
+                    'code-output', 'preview-iframe', 'directory-list',
+                    'copy-button', 'download-button', 'subscription-status', 'chat-list', 'chat-title',
                     'history-button', 'page-new-chat-button',
                     'history-modal-overlay', 'history-modal-panel',
                     'user-profile-card', 'user-avatar', 'user-fullname', 'user-username',
@@ -451,7 +551,9 @@
                     'tool-color', 'color-picker', 'color-hex', 'color-rgb', 'color-hsl',
                     // PRO Tools
                     'tool-image-generator', 'image-prompt', 'image-generate-btn', 'image-output-container', 'image-loader', 'image-output',
-                    'tool-code-doctor', 'code-doctor-input', 'code-doctor-action', 'code-doctor-run-btn', 'code-doctor-output-container', 'code-doctor-output'
+                    'tool-code-doctor', 'code-doctor-input', 'code-doctor-action', 'code-doctor-run-btn', 'code-doctor-output-container', 'code-doctor-output',
+                    // Directory
+                    'new-filename-input', 'new-filetype-select', 'add-file-button'
                 ];
                 ids.forEach(id => {
                     const camelCaseId = id.replace(/-(\w)/g, (_, c) => c.toUpperCase());
@@ -462,6 +564,7 @@
                 this.elements.subNavButtons = document.querySelectorAll('#creation-page .sub-nav-button');
                 this.elements.toolNavButtons = document.querySelectorAll('.tool-nav-button');
                 this.elements.toolContents = document.querySelectorAll('.tool-content');
+                this.elements.languageButtons = document.querySelectorAll('.language-button');
             },
             
             dataManager: {
@@ -630,6 +733,7 @@
                     this.renderProfilePage();
                     this.renderChatList();
                     this.updateToolButtonsLockState();
+                    this.renderDirectory();
                 },
                 renderActiveChat() {
                     const chat = App.state.activeChat;
@@ -807,6 +911,49 @@
                         el.appendChild(chatItem);
                     });
                 },
+                renderDirectory() {
+                    const listEl = App.elements.directoryList;
+                    listEl.innerHTML = '';
+                    
+                    App.state.projectFiles.forEach((file, index) => {
+                        const item = document.createElement('div');
+                        item.className = 'directory-item';
+                        item.innerHTML = `
+                            <div class="directory-item-name">${file.name}</div>
+                            <div class="directory-item-actions">
+                                <button class="directory-item-action edit-file" data-index="${index}">Edit</button>
+                                <button class="directory-item-action delete-file" data-index="${index}">Delete</button>
+                            </div>
+                        `;
+                        listEl.appendChild(item);
+                    });
+                    
+                    // Add event listeners for directory actions
+                    document.querySelectorAll('.edit-file').forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            const index = parseInt(e.target.dataset.index);
+                            App.state.activeFileIndex = index;
+                            App.elements.codeOutput.textContent = App.state.projectFiles[index].content;
+                            Prism.highlightElement(App.elements.codeOutput);
+                            App.ui.toggleCodePreview('code');
+                        });
+                    });
+                    
+                    document.querySelectorAll('.delete-file').forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            const index = parseInt(e.target.dataset.index);
+                            if (App.state.projectFiles.length > 1) {
+                                App.state.projectFiles.splice(index, 1);
+                                if (App.state.activeFileIndex >= index) {
+                                    App.state.activeFileIndex = Math.max(0, App.state.activeFileIndex - 1);
+                                }
+                                this.renderDirectory();
+                            } else {
+                                App.ui.showPopup({ title: 'Ошибка', message: 'Нельзя удалить последний файл в проекте.' });
+                            }
+                        });
+                    });
+                },
                 addMessageToChat(text, sender, isTyping = false) {
                     const messageDiv = document.createElement('div');
                     messageDiv.className = `chat-bubble ${sender}-bubble flex items-center`;
@@ -859,6 +1006,7 @@
                     App.elements.subNavButtons.forEach(b => b.classList.toggle('active', b.dataset.view === view));
                     App.elements.codeView.classList.toggle('hidden', view !== 'code');
                     App.elements.previewView.classList.toggle('hidden', view !== 'preview');
+                    App.elements.directoryView.classList.toggle('hidden', view !== 'directory');
                 },
                 toggleGenerationButton(disabled) {
                     App.state.isGenerating = disabled;
@@ -936,6 +1084,7 @@
                     App.elements.generateButton.addEventListener('click', () => App.generationManager.handleGeneration());
                     App.elements.promptInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') App.generationManager.handleGeneration(); });
                     App.elements.copyButton.addEventListener('click', () => App.chatManager.copyCode());
+                    App.elements.downloadButton.addEventListener('click', () => App.chatManager.downloadCode());
                     
                     App.elements.historyButton.addEventListener('click', () => App.ui.openHistoryModal());
                     App.elements.historyModalOverlay.addEventListener('click', () => App.ui.closeHistoryModal());
@@ -943,6 +1092,62 @@
                     
                     App.elements.copyReferralLinkButton.addEventListener('click', () => App.referralManager.copyReferralLink());
                     App.elements.inviteFriendButton.addEventListener('click', () => App.referralManager.shareReferralLink());
+
+                    // Language buttons
+                    App.elements.languageButtons.forEach(button => {
+                        button.addEventListener('click', () => {
+                            App.elements.languageButtons.forEach(btn => btn.classList.remove('active'));
+                            button.classList.add('active');
+                            App.state.selectedLanguage = button.dataset.lang;
+                        });
+                    });
+
+                    // Directory actions
+                    App.elements.addFileButton.addEventListener('click', () => {
+                        const filename = App.elements.newFilenameInput.value.trim();
+                        const filetype = App.elements.newFiletypeSelect.value;
+                        
+                        if (!filename) {
+                            App.ui.showPopup({ title: 'Ошибка', message: 'Введите имя файла' });
+                            return;
+                        }
+                        
+                        const extension = filetype === 'html' ? '.html' : 
+                                         filetype === 'js' ? '.js' : 
+                                         filetype === 'css' ? '.css' : 
+                                         filetype === 'py' ? '.py' : 
+                                         filetype === 'java' ? '.java' : 
+                                         filetype === 'php' ? '.php' : 
+                                         filetype === 'rb' ? '.rb' : 
+                                         filetype === 'cs' ? '.cs' : 
+                                         filetype === 'cpp' ? '.cpp' : 
+                                         filetype === 'go' ? '.go' : 
+                                         filetype === 'rs' ? '.rs' : 
+                                         filetype === 'swift' ? '.swift' : 
+                                         filetype === 'kt' ? '.kt' : '';
+                        
+                        const newFile = {
+                            name: filename.endsWith(extension) ? filename : `${filename}${extension}`,
+                            type: filetype,
+                            content: filetype === 'html' ? '<!DOCTYPE html>\n<html>\n<head>\n  <title>New Page</title>\n</head>\n<body>\n  \n</body>\n</html>' :
+                                   filetype === 'js' ? '// JavaScript file\n\n' :
+                                   filetype === 'css' ? '/* CSS file */\n\n' :
+                                   filetype === 'py' ? '# Python file\n\n' :
+                                   filetype === 'java' ? '// Java file\n\n' :
+                                   filetype === 'php' ? '<?php\n// PHP file\n\n' :
+                                   filetype === 'rb' ? '# Ruby file\n\n' :
+                                   filetype === 'cs' ? '// C# file\n\n' :
+                                   filetype === 'cpp' ? '// C++ file\n\n' :
+                                   filetype === 'go' ? '// Go file\n\n' :
+                                   filetype === 'rs' ? '// Rust file\n\n' :
+                                   filetype === 'swift' ? '// Swift file\n\n' :
+                                   filetype === 'kt' ? '// Kotlin file\n\n' : ''
+                        };
+                        
+                        App.state.projectFiles.push(newFile);
+                        App.ui.renderDirectory();
+                        App.elements.newFilenameInput.value = '';
+                    });
 
                     // PRO Tools Listeners
                     App.elements.imageGenerateBtn.addEventListener('click', () => App.toolsManager.generateImage());
@@ -987,6 +1192,18 @@
                     } finally {
                         document.body.removeChild(textarea);
                     }
+                },
+                downloadCode() {
+                    const code = App.state.activeChat?.generated_code || '';
+                    const blob = new Blob([code], { type: 'text/html' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'index.html';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
                 }
             },
             
@@ -1155,9 +1372,11 @@
                     const indicator = App.ui.addMessageToChat('Пишу код...', 'ai', true);
 
                     try {
-                        const systemPrompt = App.api.createCodeGenerationPrompt(prompt, chat.generated_code);
+                        // Добавляем выбранный язык в промпт
+                        const fullPrompt = `Язык программирования: ${App.state.selectedLanguage}\n\n${prompt}`;
+                        const systemPrompt = App.api.createCodeGenerationPrompt(fullPrompt, chat.generated_code);
                         const newCode = await App.api.callGemini(systemPrompt);
-                        const codeMatch = newCode.match(/```(?:html|css|javascript|)\n([\s\S]*?)\n```/s);
+                        const codeMatch = newCode.match(/```(?:html|javascript|python|java|php|ruby|csharp|cpp|go|rust|swift|kotlin|)\n([\s\S]*?)\n```/s);
                         const finalCode = codeMatch ? codeMatch[1] : newCode;
 
                         indicator.remove();
@@ -1173,6 +1392,11 @@
                         chat.messages.push({ sender: 'ai', text: aiResponseText });
                         
                         chat.generated_code = finalCode;
+                        
+                        // Обновляем текущий файл в директории
+                        if (App.state.projectFiles.length > 0) {
+                            App.state.projectFiles[App.state.activeFileIndex].content = finalCode;
+                        }
                         
                         await App.dataManager.saveActiveChat();
                         App.tg.HapticFeedback.notificationOccurred('success');
@@ -1681,7 +1905,7 @@
                 createCodeGenerationPrompt(userPrompt, existingCode) {
                     const isPro = App.state.userProfile?.subscription_is_active;
                     const modelUsed = isPro ? 'Gemini 1.5 Pro' : 'Gemini 1.5 Flash';
-                    const baseInstruction = `Твоя задача - быть экспертом по созданию html блоков, компонентов, приложений. Ты должен вернуть ТОЛЬКО HTML-код в одном блоке \`\`\`html ... \`\`\`. Без лишних слов, объяснений или комментариев вне кода. Код должен быть полным и самодостаточным (включая HTML, CSS в <style> и JS в <script>). Используй Tailwind CSS для стилизации. Ты работаешь на модели ${modelUsed}.`;
+                    const baseInstruction = `Твоя задача - быть экспертом по созданию веб-приложений на всех языках программирования. Ты должен вернуть ТОЛЬКО код в одном блоке \`\`\`...\`\`\`. Без лишних слов, объяснений или комментариев вне кода. Код должен быть полным и самодостаточным. Используй Tailwind CSS для стилизации, если это веб-приложение. Ты работаешь на модели ${modelUsed}.`;
                     return existingCode
                         ? `${baseInstruction}\nВот существующий код:\n\n${existingCode}\n\nЗапрос пользователя: "${userPrompt}".\nИзмени код и верни новую полную версию.`
                         : `${baseInstruction}\nЗапрос пользователя: "${userPrompt}".\nСоздай код с нуля.`;
